@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Favicon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Iniciar Sesión</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            oscuro: '#231F20',
+            celeste: '#23b4e9'
+          },
+          fontFamily: {
+            sans: ['Kanit', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .fade-up-enter {
+      animation: fadeUp 0.45s ease forwards;
+    }
+    @keyframes pulseGlow {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(0, 200, 255, 0.25);
+      }
+      70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px rgba(0, 200, 255, 0.35);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(0, 200, 255, 0.25);
+      }
+    }
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    @keyframes blink {
+      0% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    .membresia-up-btn {
+      background-color: rgba(0, 200, 255, 0.25);
+      border: 1px solid rgba(0, 200, 255, 0.35);
+      color: #fff;
+      font-weight: 400;
+      animation: pulseGlow 2.5s ease-in-out infinite;
+    }
+    .membresia-up-btn-active {
+      background-color: rgba(0, 200, 255, 0.4);
+      border-color: #00C8FF;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+
+<body class="bg-oscuro min-h-screen text-white flex flex-col justify-center items-center gap-6 px-6 text-center font-sans">
+  <div id="globalLoader" class="fixed inset-0 bg-black/70 z-[9998] hidden items-center justify-center flex-col gap-4 transition-opacity duration-500 opacity-0">
+    <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Favicon.png" alt="Loader" class="w-20 h-20 md:w-24 md:h-24 animate-spin" style="animation: spin 1.5s linear infinite;">
+    <p class="text-white text-lg font-medium tracking-wide" style="animation: blink 1.5s ease-in-out infinite alternate;">Creando tu cuenta...</p>
+  </div>
+
+  <!-- Logo -->
+  <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Logo_fondo%20oscuro.png" alt="Logo" class="w-48 mt-12 mb-8">
+
+  <!-- Botón para mostrar login -->
+  <button id="btnMostrarLogin" class="bg-celeste text-white font-medium py-3 px-6 rounded-lg text-lg w-full max-w-xs">Entrar a mi Cuenta</button>
+
+  <!-- Formulario de Login -->
+  <form id="formLogin" class="hidden w-full max-w-xs text-left">
+    <label class="block text-white text-sm mb-1">Email</label>
+    <input type="email" id="emailLogin" class="w-full px-3 py-2 rounded bg-white text-black mb-3" required />
+
+    <label class="block text-white text-sm mb-1">Contraseña</label>
+    <div class="relative">
+      <input type="password" id="passwordLogin" class="w-full px-3 py-2 pr-10 rounded bg-white text-black mb-3" required />
+      <i id="togglePasswordLogin" class="fas fa-eye-slash absolute top-3 right-3 cursor-pointer text-gray-500"></i>
+    </div>
+
+    <button type="submit" class="w-full bg-celeste text-white text-lg font-medium py-2 rounded mt-2">Iniciar Sesión</button>
+    <p id="errorMensaje" class="text-red-500 mt-2 text-sm hidden"></p>
+
+    <div class="mt-6 mb-4">
+      <button type="button" data-login-provider="google" class="w-full flex items-center justify-center gap-2 border border-gray-300 bg-white text-black py-2 rounded font-medium">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5" />
+        Entrar con Google
+      </button>
+    </div>
+
+    <p class="text-sm text-white text-center">
+      ¿No tienes cuenta?
+      <button type="button" id="linkMostrarRegistro" class="underline text-celeste">Regístrate</button>
+    </p>
+  </form>
+
+  <div id="linksRecuperacion" class="hidden w-full max-w-xs text-sm text-center space-y-2">
+    <a href="./recuperarPassword.html" class="text-white underline block">¿Olvidaste tu contraseña?</a>
+  </div>
+
+  <!-- Botón para mostrar registro -->
+  <button id="btnMostrarRegistro" class="bg-white text-celeste font-medium py-3 px-6 rounded-lg text-lg w-full max-w-xs">Crear Cuenta</button>
+
+  <!-- Formulario de Registro -->
+  <form id="formRegistro" class="hidden w-full max-w-xs text-left" enctype="multipart/form-data">
+    <div class="bg-white/5 border border-white/20 rounded-2xl p-4 mb-6 text-center">
+      <p class="text-[11px] uppercase tracking-[0.35em] text-white/60 mb-3 font-normal">Tipo de cuenta</p>
+      <div id="tipoCuentaSelector" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button type="button" data-tipo="regular" class="tipo-cuenta-btn border border-white/20 rounded-xl bg-white/5 px-4 py-3 text-center transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-celeste/60">
+          <span class="text-white font-normal block">Cuenta Regular</span>
+          <span class="text-white/70 text-sm font-normal">Ideal para explorar En Pe Erre.</span>
+        </button>
+        <button type="button" data-tipo="up" class="tipo-cuenta-btn membresia-up-btn border border-white/20 rounded-xl px-4 py-3 text-center transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-celeste/60">
+          <span class="text-white font-normal block">Membresía Up</span>
+          <span class="text-celeste text-sm font-normal">Gratis hasta el 31 de diciembre.</span>
+        </button>
+      </div>
+      <input type="hidden" id="tipoCuentaSeleccion" value="regular" />
+    </div>
+
+    <div class="text-center text-white text-base font-medium mb-4" id="tipoCuentaMensaje">
+      Registrándote con una Cuenta Regular
+    </div>
+
+    <div id="membresiaUpInfo" class="hidden flex-col items-center text-center gap-4 bg-white/5 border border-celeste/40 rounded-2xl p-5 mb-6 shadow-[0_15px_40px_rgba(35,180,233,0.25)] transition-all duration-300">
+      <div class="flex items-center justify-center">
+        <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Logo%20UP_FondoOscuro.png" alt="Logo Membresía Up" class="max-w-[100px] w-full h-auto object-contain select-none pointer-events-none" />
+      </div>
+      <div class="space-y-2">
+        <p class="text-lg font-normal text-white">💎 Membresía Up — Gratis hasta el 31 de diciembre de 2025</p>
+        <p class="text-sm text-[#CCCCCC] font-normal">A partir del 1 de enero de 2026 el costo será de $9.95 al mes.</p>
+        <p class="text-sm text-white/90 font-normal">Disfruta todos los privilegios En Pe Erre sin costo por tiempo limitado.</p>
+      </div>
+      <ul class="text-white/90 text-sm space-y-2 w-full max-w-sm font-normal">
+        <li class="flex items-center gap-2 justify-center"><i class="fas fa-ticket-alt text-celeste"></i><span>Acceso a cupones exclusivos</span></li>
+        <li class="flex items-center gap-2 justify-center"><i class="fas fa-tags text-celeste"></i><span>Descuentos especiales</span></li>
+        <li class="flex items-center gap-2 justify-center"><i class="fas fa-bell text-celeste"></i><span>Notificaciones personalizadas</span></li>
+      </ul>
+    </div>
+
+    <div id="avatarSection" class="hidden flex flex-col items-center mb-6 transition-all duration-300">
+      <div id="avatarPreview" class="relative flex items-center justify-center rounded-full border border-white cursor-pointer overflow-hidden shadow-lg shadow-celeste/20" style="width: 150px; height: 150px;">
+        <span id="avatarPlaceholder" class="text-5xl text-white">+</span>
+        <img id="previewFoto" class="hidden w-full h-full object-cover" alt="Preview foto" />
+      </div>
+      <p id="avatarText" class="text-white text-sm font-light mt-2 cursor-pointer">Añadir imagen</p>
+      <p class="text-xs text-white/70 mt-1 text-center">Obligatorio para Membresía Up</p>
+      <input type="file" id="fotoRegistro" accept="image/*" class="hidden" />
+    </div>
+
+    <label class="block text-white text-sm mb-1">Nombre</label>
+    <input type="text" id="nombreRegistro" class="w-full px-3 py-2 rounded bg-white text-black mb-3" required />
+
+    <label class="block text-white text-sm mb-1">Apellido</label>
+    <input type="text" id="apellidoRegistro" class="w-full px-3 py-2 rounded bg-white text-black mb-3" required />
+
+    <label class="block text-white text-sm mb-1">Email</label>
+    <input type="email" id="emailRegistro" class="w-full px-3 py-2 rounded bg-white text-black mb-3" required />
+
+    <label id="telefonoLabel" class="block text-white text-sm mb-1">Teléfono (opcional)</label>
+    <input type="tel" id="telefonoRegistro" class="w-full px-3 py-2 rounded bg-white text-black mb-1 border border-transparent" placeholder="(787) 123-4567" />
+    <p id="telefonoError" class="text-red-500 text-sm mt-1 hidden">El número de teléfono es obligatorio para activar tu Membresía Up.</p>
+    <div class="mb-3"></div>
+
+    <label class="flex items-start gap-2 text-white text-sm mb-3">
+      <input type="checkbox" id="consentimientoSms" class="mt-1" checked />
+      <span>Recibir notificaciones por texto de ofertas exclusivas de En Pe Erre y de tus comercios favoritos.</span>
+    </label>
+
+    <div id="terminosWrapper" class="hidden flex-col gap-2 mb-4 text-left">
+      <label class="flex items-start gap-2 text-white text-sm">
+        <input type="checkbox" id="terminosCheckbox" class="mt-1 accent-celeste" disabled />
+        <span>Aceptar <button type="button" id="abrirTerminos" class="text-celeste underline">Términos y Condiciones</button> de la Membresía UP.</span>
+      </label>
+      <p id="terminosError" class="text-red-500 text-sm hidden">Debes aceptar los Términos y Condiciones de la Membresía UP.</p>
+    </div>
+
+    <label class="block text-white text-sm mb-1">Municipio (opcional)</label>
+    <select id="municipio" class="w-full px-3 py-2 rounded bg-white text-black mb-3">
+      <option value="">Selecciona un municipio</option>
+      <option value="1">Adjuntas</option>
+      <option value="2">Aguada</option>
+      <option value="3">Aguadilla</option>
+      <option value="4">Aguas Buenas</option>
+      <option value="5">Aibonito</option>
+      <option value="6">Añasco</option>
+      <option value="7">Arecibo</option>
+      <option value="8">Arroyo</option>
+      <option value="9">Barceloneta</option>
+      <option value="10">Barranquitas</option>
+      <option value="11">Bayamón</option>
+      <option value="12">Cabo Rojo</option>
+      <option value="13">Caguas</option>
+      <option value="14">Camuy</option>
+      <option value="15">Canóvanas</option>
+      <option value="16">Carolina</option>
+      <option value="17">Cataño</option>
+      <option value="18">Cayey</option>
+      <option value="19">Ceiba</option>
+      <option value="20">Ciales</option>
+      <option value="21">Cidra</option>
+      <option value="22">Coamo</option>
+      <option value="23">Comerío</option>
+      <option value="24">Corozal</option>
+      <option value="25">Culebra</option>
+      <option value="26">Dorado</option>
+      <option value="27">Fajardo</option>
+      <option value="28">Florida</option>
+      <option value="29">Guánica</option>
+      <option value="30">Guayama</option>
+      <option value="31">Guayanilla</option>
+      <option value="32">Guaynabo</option>
+      <option value="33">Gurabo</option>
+      <option value="34">Hatillo</option>
+      <option value="35">Hormigueros</option>
+      <option value="36">Humacao</option>
+      <option value="37">Isabela</option>
+      <option value="38">Jayuya</option>
+      <option value="39">Juana Díaz</option>
+      <option value="40">Juncos</option>
+      <option value="41">Lajas</option>
+      <option value="42">Lares</option>
+      <option value="43">Las Marías</option>
+      <option value="44">Las Piedras</option>
+      <option value="45">Loíza</option>
+      <option value="46">Luquillo</option>
+      <option value="47">Manatí</option>
+      <option value="48">Maricao</option>
+      <option value="49">Maunabo</option>
+      <option value="50">Mayagüez</option>
+      <option value="51">Moca</option>
+      <option value="52">Morovis</option>
+      <option value="53">Naguabo</option>
+      <option value="54">Naranjito</option>
+      <option value="55">Orocovis</option>
+      <option value="56">Patillas</option>
+      <option value="57">Peñuelas</option>
+      <option value="58">Ponce</option>
+      <option value="59">Quebradillas</option>
+      <option value="60">Rincón</option>
+      <option value="61">Río Grande</option>
+      <option value="62">Sabana Grande</option>
+      <option value="63">Salinas</option>
+      <option value="64">San Germán</option>
+      <option value="65">San Juan</option>
+      <option value="66">San Lorenzo</option>
+      <option value="67">San Sebastián</option>
+      <option value="68">Santa Isabel</option>
+      <option value="69">Toa Alta</option>
+      <option value="70">Toa Baja</option>
+      <option value="71">Trujillo Alto</option>
+      <option value="72">Utuado</option>
+      <option value="73">Vega Alta</option>
+      <option value="74">Vega Baja</option>
+      <option value="75">Vieques</option>
+      <option value="76">Villalba</option>
+      <option value="77">Yabucoa</option>
+      <option value="78">Yauco</option>
+    </select>
+
+<!-- Contraseña -->
+<label class="block text-white text-sm mb-1">Contraseña</label>
+<div class="relative">
+  <input type="password" id="passwordRegistro" class="w-full px-3 py-2 pr-10 rounded bg-white text-black border border-transparent mb-1" required />
+  <i id="togglePasswordRegistro" class="fas fa-eye-slash absolute top-3 right-3 cursor-pointer text-gray-500"></i>
+</div>
+<p id="passwordRegistroMensaje" class="text-xs text-red-400 mb-3 hidden">La contraseña debe tener al menos 6 caracteres.</p>
+
+<!-- Confirmar contraseña -->
+<label class="block text-white text-sm mb-1">Confirmar Contraseña</label>
+<div class="relative">
+  <input type="password" id="confirmarPassword" class="w-full px-3 py-2 pr-10 rounded bg-white text-black mb-3" required />
+  <i id="toggleConfirmarPassword" class="fas fa-eye-slash absolute top-3 right-3 cursor-pointer text-gray-500"></i>
+</div>
+
+    <button type="submit" class="w-full bg-celeste text-white text-lg font-medium py-2 rounded">Registrarme</button>
+    <p id="errorRegistro" class="text-red-500 mt-2 text-sm hidden"></p>
+
+    <div class="mt-8 mb-4">
+      <button type="button" data-login-provider="google" class="w-full flex items-center justify-center gap-2 border border-gray-300 bg-white text-black py-2 rounded font-medium">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5" />
+        Entrar con Google
+      </button>
+    </div>
+
+    <p class="text-sm text-white text-center">
+      ¿Ya tienes cuenta?
+      <button type="button" id="linkMostrarLogin" class="underline text-celeste">Inicia sesión</button>
+    </p>
+  </form>
+
+  <!-- Continuar sin cuenta -->
+  <a href="javascript:history.back()" class="text-sm underline text-white mt-2 mb-10">
+  Continuar sin Cuenta
+</a>
+
+  <!-- Scripts -->
+  <script type="module" src="./js/logearse.js"></script>
+
+  <script src="js/bloquearPantalla.js"></script>
+  <div id="modalTerminos" class="fixed inset-0 bg-black/50 z-[10000] hidden items-center justify-center px-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+      <div class="text-center flex items-center justify-between px-6 py-4 border-b">
+        <h2 class="text-center text-lg font-semibold text-gray-800">Términos y Condiciones</h2>
+        <button type="button" id="cerrarModalTerminos" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="modalContenido" class="px-6 py-4 overflow-y-auto text-sm text-gray-700 space-y-4" style="max-height: 60vh;">
+        <p><strong>Términos y Condiciones de la Membresía UP</strong></p>
+        <p>Al crear tu cuenta y activar tu Membresía UP, aceptas los siguientes términos:</p>
+        <ol class="text-start list-decimal pl-5 space-y-3">
+          <li>
+            <strong>Costo y renovación automática:</strong><br />
+            La Membresía UP tiene un costo de <strong>$9.95 mensuales</strong>, con renovación automática cada mes a través del método de pago registrado.<br />
+            Actualmente, el servicio es <strong>gratis hasta el 31 de diciembre de 2025</strong>. A partir de esa fecha, comenzará el cobro mensual sin interrupción, salvo que el usuario cancele su suscripción antes de la fecha de facturación.
+          </li>
+          <li>
+            <strong>Cancelación:</strong><br />
+            Puedes cancelar tu membresía en cualquier momento desde tu perfil o comunicándote con nuestro equipo de soporte. No se emitirán reembolsos parciales por periodos no utilizados.
+          </li>
+          <li>
+            <strong>Promociones y comunicaciones:</strong><br />
+            Al aceptar estos términos, autorizas a En Pe Erre a enviarte <strong>mensajes de texto, correos electrónicos o notificaciones</strong> con promociones, descuentos, actualizaciones o información relacionada con tu cuenta y comercios afiliados.
+          </li>
+          <li>
+            <strong>Uso responsable:</strong><br />
+            La membresía es personal e intransferible. El uso indebido, la reventa o el intento de fraude con beneficios o cupones puede conllevar la cancelación inmediata de la cuenta.
+          </li>
+          <li>
+            <strong>Modificaciones:</strong><br />
+            En Pe Erre se reserva el derecho de modificar estos términos, precios o beneficios en cualquier momento. Cualquier cambio será notificado con antelación a los usuarios activos.
+          </li>
+        </ol>
+        <p>Al continuar, confirmas que has leído y aceptas estos términos y condiciones.</p>
+      </div>
+      <div class="px-6 py-4 border-t flex justify-end gap-3">
+        <button type="button" id="cancelarModalTerminos" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Cancelar</button>
+        <button type="button" id="aceptarTerminosBtn" class="px-4 py-2 rounded-lg bg-celeste text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed" disabled>Aceptar</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
