@@ -1,5 +1,6 @@
 // ✅ public/js/cardComercio.js
 import { getPublicBase, calcularTiempoEnVehiculo } from '../shared/utils.js';
+import { t, interpolate } from './i18n.js';
 
 function resolveAppBase() {
   const isLocal = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
@@ -14,11 +15,28 @@ export function cardComercio(comercio) {
     w-full max-w-[180px] sm:max-w-[200px] mx-auto
   `;
 
-  // 🕒 Calcular tiempo estimado de llegada
-  let textoTiempoEstimado = comercio.tiempoVehiculo || comercio.tiempoTexto || '';
-  if (!textoTiempoEstimado && Number.isFinite(comercio.distanciaKm)) {
-    const { minutos, texto } = calcularTiempoEnVehiculo(comercio.distanciaKm);
-    textoTiempoEstimado = minutos < 60 ? `a ${minutos} minutos` : `a ${texto}`;
+  // 🕒 Calcular tiempo estimado de llegada con i18n
+  let minutosEstimados = null;
+  if (Number.isFinite(comercio.distanciaKm)) {
+    const { minutos } = calcularTiempoEnVehiculo(comercio.distanciaKm);
+    minutosEstimados = minutos;
+  } else if (Number.isFinite(comercio.tiempoVehiculo)) {
+    minutosEstimados = Number(comercio.tiempoVehiculo);
+  }
+
+  let textoTiempoEstimado = '';
+  if (Number.isFinite(minutosEstimados)) {
+    if (minutosEstimados < 60) {
+      textoTiempoEstimado = interpolate(t('card.minAway'), { min: Math.round(minutosEstimados) });
+    } else {
+      const h = Math.floor(minutosEstimados / 60);
+      const m = Math.max(0, Math.round(minutosEstimados % 60));
+      textoTiempoEstimado = interpolate(t('card.horasMinAway'), { h, m });
+    }
+  } else if (typeof comercio.tiempoTexto === 'string' && comercio.tiempoTexto.trim() !== '') {
+    textoTiempoEstimado = comercio.tiempoTexto;
+  } else {
+    textoTiempoEstimado = t('card.noDisponible');
   }
 
   // 🖼️ Imagen de portada y logo
@@ -92,13 +110,13 @@ export function cardComercio(comercio) {
                     ${abiertoAhora ? 'text-green-600' : 'text-red-600'} 
                     font-medium mb-1 text-base">
           <i class="far fa-clock ${abiertoAhora ? 'slow-spin text-green-600' : 'text-red-500'}"></i> 
-          ${abiertoAhora ? 'Abierto Ahora' : 'Cerrado Ahora'}
+          ${abiertoAhora ? t('card.abiertoAhora') : t('card.cerradoAhora')}
         </div>
       `;
     })()}
 
-    <div class="flex justify-center items-center gap-1 font-medium mb-1 text-sm text-[#23b4e9]">
-      <i class="fas fa-map-pin text-[#23b4e9]"></i> ${comercio.pueblo}
+    <div class="flex justify-center items-center gap-1 font-medium mb-1 text-sm text-[#3ea6c4]">
+      <i class="fas fa-map-pin text-[#3ea6c4]"></i> ${comercio.pueblo}
     </div>
 
     ${

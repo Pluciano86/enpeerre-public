@@ -3,9 +3,15 @@ import { supabase } from "../shared/supabaseClient.js";
 import { requireAuth } from "./authGuard.js";
 import { obtenerClima } from "./obtenerClima.js";
 import { calcularTiemposParaLista } from "./calcularTiemposParaLista.js";
+import { formatTiempo } from "../shared/osrmClient.js";
+import { getLang, t } from "./i18n.js";
+import { getPlayaI18n } from "../shared/playaI18n.js";
 
 let usuarioId = null;
 let playaFavorita = false;
+let playaActual = null;
+const PLAYA_PLACEHOLDER =
+  "https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/imgPlayaNoDisponible.jpg";
 
 // Loader
 function mostrarLoader() {
@@ -41,12 +47,70 @@ function actualizarFavoritoPlayaUI(icono, texto) {
   if (!icono || !texto) return;
   if (playaFavorita) {
     icono.className = "fas fa-heart text-xl text-red-500 animate-bounce";
-    texto.textContent = "En favoritos";
+    texto.textContent = t("perfilPlaya.enFavoritos");
   } else {
     icono.className = "far fa-heart text-xl";
-    texto.textContent = "Añadir a favoritos";
+    texto.textContent = t("perfilPlaya.btnFavorito");
   }
 }
+
+function traducirCosta(costa) {
+  const normalized = String(costa || '').trim().toLowerCase();
+  const map = {
+    'sur': t('playas.costaSur'),
+    'este': t('playas.costaEste'),
+    'metro': t('playas.costaMetro'),
+    'norte': t('playas.costaNorte'),
+    'oeste': t('playas.costaOeste'),
+    'islas municipio': t('playas.costaIslas'),
+    'islas': t('playas.costaIslas')
+  };
+  return map[normalized] || costa;
+}
+
+async function renderDescripcionAcceso() {
+  if (!playaActual) return;
+  const lang = getLang();
+  const descripcionEl = document.getElementById("descripcionPlaya");
+  const accesoEl = document.getElementById("infoAcceso");
+  if (!descripcionEl || !accesoEl) return;
+
+  let descripcionTexto = playaActual.descripcion?.trim() || "";
+  let accesoTexto = playaActual.acceso?.trim() || "";
+
+  if (lang && lang !== "es") {
+    const traducido = await getPlayaI18n(playaActual.id, lang);
+    if (traducido?.descripcion) descripcionTexto = traducido.descripcion;
+    if (traducido?.acceso) accesoTexto = traducido.acceso;
+  }
+
+  descripcionEl.textContent = descripcionTexto || t("playa.descripcionNoDisponible");
+  accesoEl.textContent = accesoTexto || t("playa.accesoNoDisponible");
+}
+
+function ensureNoImageText(container, mostrar) {
+  if (!container) return;
+  let overlay = container.querySelector(".playa-no-image-text");
+  if (!mostrar) {
+    overlay?.remove();
+    return;
+  }
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.className =
+      "playa-no-image-text absolute inset-0 flex flex-col items-center justify-center text-center text-white font-semibold text-2xl leading-tight";
+    overlay.innerHTML = `
+      <span style="text-shadow: 0 2px 4px rgba(0,0,0,0.85);">${t("playa.noImageTitle")}</span>
+      <span style="text-shadow: 0 2px 4px rgba(0,0,0,0.85);">${t("playa.noImageSubtitle")}</span>
+    `;
+    container.appendChild(overlay);
+  } else {
+    const spans = overlay.querySelectorAll("span");
+    if (spans[0]) spans[0].textContent = t("playa.noImageTitle");
+    if (spans[1]) spans[1].textContent = t("playa.noImageSubtitle");
+  }
+}
+
 
 async function sincronizarFavoritoPlaya(idPlaya) {
   if (!usuarioId) {
@@ -156,17 +220,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (error) throw error;
     if (!data) throw new Error("No se encontró la playa");
+    playaActual = data;
 
     // === Imagen principal ===
     const imagenPlayaEl = document.getElementById("imagenPlaya");
     if (imagenPlayaEl) {
-      imagenPlayaEl.src =
-        data.imagen?.trim() ||
-        "https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/imgPlayaNoDisponible.jpg";
+      const tieneImagen = Boolean(data.imagen?.trim());
+      imagenPlayaEl.src = tieneImagen ? data.imagen.trim() : PLAYA_PLACEHOLDER;
       imagenPlayaEl.alt = `Imagen de ${data.nombre}`;
+      ensureNoImageText(imagenPlayaEl.parentElement, !tieneImagen);
       imagenPlayaEl.onerror = () => {
-        imagenPlayaEl.src =
-          "https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/imgPlayaNoDisponible.jpg";
+        imagenPlayaEl.src = PLAYA_PLACEHOLDER;
+        ensureNoImageText(imagenPlayaEl.parentElement, true);
       };
     }
 
@@ -174,7 +239,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("nombrePlaya").textContent =
       data.nombre || "Playa sin nombre";
     const municipioText = data.municipio ? data.municipio : "";
-    const costaText = data.costa ? `Costa ${data.costa}` : "";
+    const costaText = data.costa
+      ? t("playas.costaPrefix", { valor: traducirCosta(data.costa) })
+      : "";
     document.getElementById("municipioPlaya").textContent =
       municipioText && costaText
         ? `${municipioText} – ${costaText}`
@@ -191,9 +258,9 @@ if (direccionSpan) {
     const aptitudesContainer = document.getElementById("aptitudesContainer");
     aptitudesContainer.innerHTML = "";
     const aptitudes = [];
-    if (data.nadar) aptitudes.push({ emoji: "🏊", texto: "Nadar" });
-    if (data.surfear) aptitudes.push({ emoji: "🏄", texto: "Surfear" });
-    if (data.snorkeling) aptitudes.push({ emoji: "🤿", texto: "Snorkel" });
+    if (data.nadar) aptitudes.push({ emoji: "🏊", texto: t("playas.nadar") });
+    if (data.surfear) aptitudes.push({ emoji: "🏄", texto: t("playas.surfear") });
+    if (data.snorkeling) aptitudes.push({ emoji: "🤿", texto: t("playas.snorkel") });
 
     if (aptitudes.length > 0) {
       aptitudes.forEach((apt) => {
@@ -207,26 +274,22 @@ if (direccionSpan) {
       });
     }
 
-    // === Descripción ===
-const descripcionEl = document.getElementById("descripcionPlaya");
-if (descripcionEl) {
-  descripcionEl.textContent =
-    data.descripcion?.trim() || "Descripción no disponible.";
-}
-
-// === Acceso ===
-const accesoEl = document.getElementById("infoAcceso");
-if (accesoEl) {
-  accesoEl.textContent =
-    data.acceso?.trim() || "Información de acceso no disponible.";
-}
+    await renderDescripcionAcceso();
 
     // === Clima ===
     const clima = await obtenerClima(data.latitud, data.longitud);
     if (clima) {
       const climaSection = document.getElementById("climaSection");
       climaSection.querySelector("#temperatura").textContent = clima.temperatura;
-      climaSection.querySelector("#rangoTemperatura").textContent = `Mínima: ${clima.min} · Máxima: ${clima.max}`;
+      const rangoEl = climaSection.querySelector("#rangoTemperatura");
+      if (rangoEl) {
+        rangoEl.dataset.min = clima.min;
+        rangoEl.dataset.max = clima.max;
+        rangoEl.innerHTML = `
+          ${t("perfilPlaya.minLabel")}: ${clima.min}<br>
+          ${t("perfilPlaya.maxLabel")}: ${clima.max}
+        `;
+      }
       climaSection.querySelector("#descripcionClima").textContent = clima.estado;
       climaSection.querySelector("#viento").textContent = clima.viento;
       climaSection.querySelector("#humedad").textContent = clima.humedad;
@@ -250,11 +313,16 @@ if (accesoEl) {
     if (coordsUsuario && data.latitud && data.longitud) {
       const lista = [data];
       await calcularTiemposParaLista(lista, coordsUsuario);
-      const tiempo = lista[0]?.tiempoTexto || null;
+      const minutosCrudos = lista[0]?.minutosCrudos;
+      const tiempo = Number.isFinite(minutosCrudos)
+        ? formatTiempo(minutosCrudos * 60)
+        : (lista[0]?.tiempoTexto || t("area.noDisponible"));
+      playaActual.minutosCrudos = minutosCrudos;
+      playaActual.tiempoTexto = tiempo;
 
       const tiempoVehiculoEl = document.getElementById("tiempoVehiculo");
       if (tiempoVehiculoEl)
-        tiempoVehiculoEl.innerHTML = `<i class="fas fa-car"></i> ${tiempo || "No disponible"}`;
+        tiempoVehiculoEl.innerHTML = `<i class="fas fa-car"></i> ${tiempo}`;
     }
 
     // === Botones de navegación ===
@@ -275,4 +343,77 @@ if (accesoEl) {
   } finally {
     ocultarLoader();
   }
+});
+
+window.addEventListener("lang:changed", () => {
+  const imagenPlayaEl = document.getElementById("imagenPlaya");
+  const container = imagenPlayaEl?.parentElement;
+  if (container?.querySelector(".playa-no-image-text")) {
+    ensureNoImageText(container, true);
+  }
+
+  const favoritoTexto = document.querySelector("#btnFavoritoPlaya span");
+  if (favoritoTexto) {
+    favoritoTexto.textContent = playaFavorita
+      ? t("perfilPlaya.enFavoritos")
+      : t("perfilPlaya.btnFavorito");
+  }
+
+  if (playaActual) {
+    const municipioText = playaActual.municipio ? playaActual.municipio : "";
+    const costaText = playaActual.costa
+      ? t("playas.costaPrefix", { valor: traducirCosta(playaActual.costa) })
+      : "";
+    const municipioEl = document.getElementById("municipioPlaya");
+    if (municipioEl) {
+      municipioEl.textContent =
+        municipioText && costaText
+          ? `${municipioText} – ${costaText}`
+          : municipioText || costaText;
+    }
+
+    const aptitudesContainer = document.getElementById("aptitudesContainer");
+    if (aptitudesContainer) {
+      aptitudesContainer.innerHTML = "";
+      const aptitudes = [];
+      if (playaActual.nadar) aptitudes.push({ emoji: "🏊", texto: t("playas.nadar") });
+      if (playaActual.surfear) aptitudes.push({ emoji: "🏄", texto: t("playas.surfear") });
+      if (playaActual.snorkeling) aptitudes.push({ emoji: "🤿", texto: t("playas.snorkel") });
+      aptitudes.forEach((apt) => {
+        const item = document.createElement("div");
+        item.className = "flex flex-col items-center";
+        item.innerHTML = `
+          <div class="text-5xl">${apt.emoji}</div>
+          <div class="text-[#9c9c9c] font-medium mt-1">${apt.texto}</div>
+        `;
+        aptitudesContainer.appendChild(item);
+      });
+    }
+  }
+
+  if (playaActual) {
+    const tiempoVehiculoEl = document.getElementById("tiempoVehiculo");
+    if (tiempoVehiculoEl) {
+      const minutos = playaActual.minutosCrudos;
+      const tiempoTexto = Number.isFinite(minutos)
+        ? formatTiempo(minutos * 60)
+        : t("area.noDisponible");
+      tiempoVehiculoEl.innerHTML = `<i class="fas fa-car"></i> ${tiempoTexto}`;
+    }
+  }
+
+  const climaSection = document.getElementById("climaSection");
+  if (climaSection) {
+    const rangoEl = climaSection.querySelector("#rangoTemperatura");
+    const min = climaSection.querySelector("#rangoTemperatura")?.dataset?.min;
+    const max = climaSection.querySelector("#rangoTemperatura")?.dataset?.max;
+    if (rangoEl && min && max) {
+      rangoEl.innerHTML = `
+        ${t("perfilPlaya.minLabel")}: ${min}<br>
+        ${t("perfilPlaya.maxLabel")}: ${max}
+      `;
+    }
+  }
+
+  renderDescripcionAcceso();
 });

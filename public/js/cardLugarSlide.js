@@ -1,11 +1,13 @@
 // ✅ cardLugarSlide.js
+import { t } from "./i18n.js";
+
 export function cardLugarSlide(lugar, opciones = {}) {
   const {
     id,
     nombre,
     municipio,
     imagen,
-    tiempoTexto = "a 3 minutos", // valor por defecto si no hay distancia calculada
+    tiempoTexto = t('area.tiempoDefault'), // valor por defecto si no hay distancia calculada
   } = lugar;
   console.log("Renderizando corazón lugar:", nombre, lugar?.favorito);
 
@@ -46,7 +48,7 @@ export function cardLugarSlide(lugar, opciones = {}) {
       </h3>
 
       <div class="flex justify-center items-center gap-4 text-sm mt-1 text-gray-500">
-        <span class="flex items-center gap-1 text-[#23b4e9] font-normal">
+        <span class="flex items-center gap-1 text-[#3ea6c4] font-normal">
           <i class="fas fa-map-pin"></i> ${municipio ?? ""}
         </span>
 

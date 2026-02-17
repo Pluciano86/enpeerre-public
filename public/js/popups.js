@@ -2,6 +2,7 @@
 
 import { supabase } from "../shared/supabaseClient.js";
 import { showPopup as showPopupManager } from "./popupManager.js";
+import { t } from "./i18n.js";
 
 // ─────────────────────────────────────────────
 // UNIVERSAL POPUP SYSTEM
@@ -42,15 +43,15 @@ export function showPopup(html) {
   container.innerHTML = `
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-xl animate-fadeIn flex flex-col items-center">
       
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/LOGO.png"
-           alt="EnPeErre"
+      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/logoFindixi.png"
+           alt="Findixi"
            class="w-24 mx-auto mb-3 select-none"/>
 
       ${html}
 
       <button id="popupCloseBtn"
         class="mt-5 w-full bg-gray-200 text-gray-800 py-2 rounded-xl hover:bg-gray-300 transition">
-        Cerrar
+        ${t('popup.cerrar')}
       </button>
     </div>
   `;
@@ -80,9 +81,9 @@ export function showPopupFavoritosVacios(tipo) {
   };
 
   const config = {
-    titulo: "Aún no tienes favoritos 😌",
-    mensaje: `Guarda tus lugares favoritos tocando el ❤️ en cualquier ${tipo}.`,
-    botones: [{ texto: "Ok", accion: cerrarPopup }],
+    titulo: t('popup.favs.titulo'),
+    mensaje: t('popup.favs.msg'),
+    botones: [{ texto: t('common.aceptar'), accion: cerrarPopup }],
   };
 
   if (typeof showPopupManager === "function") {
@@ -102,46 +103,21 @@ function mostrarPopupAyudaUbicacion() {
   let mensaje = "";
 
   if (navegador === "chrome-ios") {
-    mensaje = `
-💡 Para activar tu ubicación en Chrome (iPhone):<br>
-
-1. Abre **Ajustes** en tu iPhone. <br>
-2. Ve a **Chrome**.<br>
-3. Toca **Ubicación**.<br>
-4. Selecciona **Al usar la app**.<br>
-Luego vuelve a EnPeErre y recarga la página.`;
+    mensaje = t('popup.geo.chromeIos');
   } else if (navegador === "safari-ios") {
-    mensaje = `
-💡 Para activar tu ubicación en Safari (iPhone):<br>
-
-1. Abre **Ajustes** en tu iPhone.<br>
-2. Ve a **Safari**.<br>
-3. En **Ubicación**, selecciona **Al usar la app**.<br>
-4. Vuelve a EnPeErre y recarga la página.`;
+    mensaje = t('popup.geo.safariIos');
   } else if (navegador === "chrome-android") {
-    mensaje = `
-💡 Para activar tu ubicación en Chrome (Android):<br>
-
-1. Toca el ícono de candado o info en la barra de direcciones.<br>
-2. En **Permisos** busca **Ubicación**.<br>
-3. Cámbialo a **Permitir**.<br>
-4. Recarga la página de EnPeErre.`;
+    mensaje = t('popup.geo.chromeAndroid');
   } else {
-    mensaje = `
-💡 Para activar tu ubicación:<br>
-
-1. Abre la configuración del navegador.<br>
-2. Busca **Permisos** o **Ubicación**.<br>
-3. Activa **Permitir** para este sitio.<br>
-4. Recarga la página de EnPeErre.`;
+    mensaje = t('popup.geo.generic');
   }
 
   showPopupManager({
-    title: "Activa tu ubicación 📍",
+    title: t('popup.geo.needPermission'),
     message: mensaje,
     buttons: [
       {
-        text: "Listo",
+        text: t('common.aceptar'),
         onClick: () => {},
       },
     ],
@@ -180,7 +156,7 @@ export function solicitarUbicacionDesdePopup() {
 
   if (!navigator.geolocation) {
     if (mensajeEl) {
-      mensajeEl.textContent = "Tu navegador no soporta geolocalización.";
+      mensajeEl.textContent = t('popup.geo.noSupport');
     }
     return;
   }
@@ -199,7 +175,7 @@ export function solicitarUbicacionDesdePopup() {
   const handleDenied = () => {
     if (mensajeEl) {
       mensajeEl.textContent =
-        "Debes habilitar los permisos de ubicación desde la configuración del navegador para continuar.";
+        t('popup.geo.needPermission');
     }
   };
 
@@ -212,7 +188,7 @@ export function solicitarUbicacionDesdePopup() {
           return;
         }
         if (mensajeEl) {
-          mensajeEl.textContent = "No se pudo obtener la ubicación. Intenta nuevamente.";
+          mensajeEl.textContent = t('popup.geo.retry');
         }
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -267,7 +243,7 @@ export function mostrarPopupUbicacionDenegada(forceShow = false) {
       </p>
       <p data-popup-geo-msg class="text-sm text-red-500 min-h-[1.5rem]"></p>
       <div class="flex flex-col gap-2">
-        <button data-action="activar" class="bg-[#23b4e9] text-white py-2 rounded-xl font-semibold hover:bg-[#199ac8] transition">
+        <button data-action="activar" class="bg-[#3ea6c4] text-white py-2 rounded-xl font-semibold hover:bg-[#199ac8] transition">
           Activar ubicación
         </button>
         <button data-action="mas-tarde" class="bg-gray-200 text-gray-800 py-2 rounded-xl hover:bg-gray-300 transition">
@@ -331,17 +307,15 @@ async function popupCrearCuenta() {
   localStorage.setItem("popupCrearCuentaShown", today);
 
   showPopup(`
-    <h2 class="text-xl font-semibold mb-2">😎 Tu Experiencia puede ser mil veces mejor que esto</h2>
+    <h2 class="text-xl font-semibold mb-2">${t("popup.crearCuenta.title")}</h2>
 
     <p class="text-gray-600 text-sm leading-relaxed mb-3">
-      Crea tu cuenta pa’ guardar tus sitios Favoritos, recibir los Almuerzos y Happy Hours del día
-y enterarte cuando abren cosas Brutales cerca de ti. 🔥
-<br> Sin cuenta… te pierdes de medio jangueo.🥴
+      ${t("popup.crearCuenta.body")}
     </p>
 
     <a id="btnCrearCuenta"
-      class="inline-block w-full bg-[#23b4e9] text-white py-2 rounded-xl font-semibold hover:bg-[#199ac8] transition">
-      Crear Cuenta Gratis
+      class="inline-block w-full bg-[#3ea6c4] text-white py-2 rounded-xl font-semibold hover:bg-[#199ac8] transition">
+      ${t("popup.crearCuenta.cta")}
     </a>
   `);
 

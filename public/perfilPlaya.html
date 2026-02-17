@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Favicon.png">
+  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Perfil de Playa</title>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script type="module" src="./js/i18n.js"></script>
   <style>
     html,
     body {
@@ -18,7 +19,10 @@
   </style>
 </head>
 
-<body class="bg-white text-gray-800 font-[Kanit] min-h-screen overflow-y-auto overflow-x-hidden pb-24">
+<body class="bg-[#121212] font-[Kanit]">
+
+<div class="min-h-screen flex justify-center bg-[#121212] overflow-y-auto overflow-x-hidden">
+  <div class="w-full max-w-md bg-white text-gray-800 pb-24">
 
   <!-- Header -->
   <div id="headerContainer" class="z-50 relative"></div>
@@ -38,14 +42,14 @@
         <i class="fa-solid fa-temperature-half text-4xl"></i>
         <p id="temperatura" class="text-5xl font-light leading-none">--°</p>
       </div>
-      <p id="rangoTemperatura" class="text-base opacity-80 mt-1">
+      <p id="rangoTemperatura" class="text-base opacity-80 mt-1" data-i18n="perfilPlaya.climaRango">
         Mínima: --° · Máxima: --°
       </p>
     </div>
 
     <!-- Estado del clima -->
     <div class="flex flex-col items-center">
-      <p id="descripcionClima" class="text-base font-semibold uppercase tracking-wide mt-1">
+      <p id="descripcionClima" class="text-base font-semibold uppercase tracking-wide mt-1" data-i18n="perfilPlaya.climaActualizando">
         Actualizando...
       </p>
     </div>
@@ -66,23 +70,23 @@
   <section class="p-5 space-y-4 text-center">
     <!-- Nombre -->
     <div>
-      <h1 id="nombrePlaya" class="text-3xl font-bold text-gray-900 mb-1">Cargando...</h1>
+      <h1 id="nombrePlaya" class="text-3xl font-bold text-gray-900 mb-1" data-i18n="perfilPlaya.cargandoInfo">Cargando...</h1>
       <p id="municipioPlaya" class="text-base text-gray-600">--</p>
     </div>
 
     <!-- Apta para -->
-    <h3 class="text-lg font-semibold text-[#424242]">Playa apta para:</h3>
+    <h3 class="text-lg font-semibold text-[#424242]" data-i18n="perfilPlaya.aptaPara">Playa apta para:</h3>
     <div id="aptitudesContainer" class="flex justify-center gap-6 text-center text-gray-700 text-sm">
       <!-- Se rellena dinámicamente -->
     </div>
       <!-- Dirección -->
-    <div id="direccionComercio" class="flex items-center gap-2 text-[#23b4e9] font-medium text-xl mt-3 leading-none mx-auto w-fit mb-2">
+    <div id="direccionComercio" class="flex items-center gap-2 text-[#3ea6c4] font-medium text-xl mt-3 leading-none mx-auto w-fit mb-2">
   <i class="fas fa-map-pin"></i>
   <span id="direccionPlaya"></span>
 </div>
 
     <p id="tiempoVehiculo" class="text-[#9c9c9c] text-xl font-medium  mb-4">
-        <i class="fas fa-car"></i> Cargando distancia...
+        <i class="fas fa-car"></i> <span data-i18n="perfilPlaya.distancia">Cargando distancia...</span>
     </p>
     <!-- Botones de navegación -->
     <div class="flex justify-center gap-4 mt-5">
@@ -104,19 +108,19 @@
 
     <button id="btnFavoritoPlaya" class="flex items-center justify-center gap-2 text-xl font-medium text-[#555] mx-auto mt-4">
       <i class="far fa-heart text-xl transition-colors duration-200"></i>
-      <span class="leading-tight">Añadir a favoritos</span>
+      <span class="leading-tight" data-i18n="perfilPlaya.btnFavorito">Añadir a favoritos</span>
     </button>
 
 <!-- Descripción -->
     <div class="bg-white rounded-lg p- shadow mt-4">
-      <h2 class="text-lg font-semibold text-gray-800 mb-2">Descripción</h2>
+      <h2 class="text-lg font-semibold text-gray-800 mb-2" data-i18n="perfilPlaya.descripcion">Descripción</h2>
       <p id="descripcionPlaya" class="text-sm text-gray-700 leading-relaxed">
-        Disfruta de esta hermosa playa con aguas cristalinas, perfecta para relajarte y conectar con la naturaleza.
+        <span data-i18n="perfilPlaya.cargandoInfo">Cargando información...</span>
       </p>
     </div>
 
     <div class="bg-white rounded-lg p-4 shadow">
-        <h2 class="text-lg font-semibold text-gray-800 mb-2">Acceso</h2>
+        <h2 class="text-lg font-semibold text-gray-800 mb-2" data-i18n="perfilPlaya.acceso">Acceso</h2>
         <p id="infoAcceso" class="text-sm text-gray-600">
           Información sobre cómo llegar a la playa.
         </p>
@@ -133,7 +137,7 @@
 
 <!-- ==================== Comercios Cercanos ==================== -->
 <section id="cercanosComidaContainer" class="hidden mt-8 w-full">
-  <h2 class="text-lg font-medium mb-4 px-4">
+  <h2 class="text-lg font-medium mb-4 px-4" data-i18n="perfilPlaya.cercanosComida">
     Lugares para Comer a menos de 10 minutos de
     <span id="nombreCercanosComida" class="text-primary"></span>
   </h2>
@@ -145,7 +149,7 @@
 
 <!-- ==================== Lugares Cercanos ==================== -->
 <section id="cercanosLugaresContainer" class="hidden mt-8 w-full">
-  <h2 class="text-lg font-medium mb-4 px-4">
+  <h2 class="text-lg font-medium mb-4 px-4" data-i18n="perfilPlaya.cercanosLugares">
     Lugares de interés cerca de
     <span id="nombreCercanosLugares" class="text-primary"></span>
   </h2>
@@ -157,7 +161,7 @@
 
 <!-- ==================== Playas Cercanas ==================== -->
 <section id="cercanosPlayasContainer" class="hidden mt-8 w-full">
-  <h2 class="text-lg font-medium mb-4 px-4">
+  <h2 class="text-lg font-medium mb-4 px-4" data-i18n="perfilPlaya.playas45">
     Playas a menos de 45 minutos de
     <span id="nombreCercanosPlayas" class="text-primary"></span>
   </h2>
@@ -184,8 +188,8 @@
 <!-- Cercanos Playa JS -->
 <script type="module" src="./js/cercanosPlaya.js"></script>
   <!-- Loader -->
-  <div id="loader" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
-    <div class="bg-white px-4 py-3 rounded shadow text-sm font-medium">Cargando información...</div>
+  <div id="loader" class="fixed inset-0 bg-black/40 hidden flex items-center justify-center z-50">
+    <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png" alt="Cargando información" class="w-16 h-16 animate-spin">
   </div>
 
   <!-- Footer -->
@@ -198,5 +202,13 @@
 <script type="module" src="./js/calcularTiemposParaLista.js"></script> <!-- solo si NO lo importas dentro -->
 <script type="module" src="./js/cercanosPlaya.js"></script>
   <script src="js/bloquearPantalla.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.initI18n) window.initI18n();
+    });
+  </script>
+</div>
+</div>
+  <script type="module" src="js/introSplash.js"></script>
 </body>
 </html>

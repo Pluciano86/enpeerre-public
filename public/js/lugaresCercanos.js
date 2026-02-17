@@ -5,6 +5,67 @@ import { getDrivingDistance, formatTiempo } from '../shared/osrmClient.js';
 import { calcularTiempoEnVehiculo } from '../shared/utils.js';
 import { calcularDistancia } from './distanciaLugar.js';
 
+let ultimoCercanos = null;
+
+function renderizarLugaresCercanos(cercanos, comercioOrigen) {
+  const container = document.getElementById('cercanosLugaresContainer');
+  const slider = document.getElementById('sliderCercanosLugares');
+  const nombreSpan = document.getElementById('nombreCercanosLugares');
+
+  if (!container || !slider) {
+    console.warn('⚠️ No se encontraron los contenedores para lugares cercanos.');
+    return;
+  }
+
+  if (nombreSpan && comercioOrigen?.nombre) nombreSpan.textContent = comercioOrigen.nombre;
+
+  const traducidos = cercanos.map((l) => ({
+    ...l,
+    tiempoTexto: l.minutosCrudos != null ? formatTiempo(l.minutosCrudos * 60) : l.tiempoTexto,
+    tiempoVehiculo: l.minutosCrudos != null ? formatTiempo(l.minutosCrudos * 60) : l.tiempoVehiculo,
+  }));
+
+  if (traducidos.length > 0) {
+    slider.innerHTML = `
+      <div class="swiper lugaresSwiper w-full overflow-hidden px-1">
+        <div class="swiper-wrapper"></div>
+      </div>
+    `;
+
+    const wrapper = slider.querySelector('.swiper-wrapper');
+
+    traducidos.forEach(l => {
+      const slide = document.createElement('div');
+      slide.className = 'swiper-slide';
+      slide.appendChild(cardLugarSlide(l));
+      wrapper.appendChild(slide);
+    });
+
+    container.classList.remove('hidden');
+
+    const swiperEl = slider.querySelector('.lugaresSwiper');
+    const numSlides = swiperEl.querySelectorAll('.swiper-slide').length;
+
+    if (swiperEl.__swiper) swiperEl.__swiper.destroy(true, true);
+
+    const swiper = new Swiper(swiperEl, {
+      centeredSlides: false,
+      slidesPerView: 1.25,
+      spaceBetween: 1,
+      loop: true,
+      speed: 900,
+      grabCursor: true,
+      autoplay: {
+        delay: 3200,
+        disableOnInteraction: false,
+      },
+    });
+    swiperEl.__swiper = swiper;
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
 export async function mostrarLugaresCercanos(comercioOrigen) {
   const origenCoords = {
     lat: comercioOrigen.latitud,
@@ -104,65 +165,15 @@ export async function mostrarLugaresCercanos(comercioOrigen) {
       .filter(l => l.minutosCrudos !== null && l.minutosCrudos <= 20)
       .sort((a, b) => a.minutosCrudos - b.minutosCrudos);
 
-    const container = document.getElementById('cercanosLugaresContainer');
-    const slider = document.getElementById('sliderCercanosLugares');
-    const nombreSpan = document.getElementById('nombreCercanosLugares');
-
-    if (!container || !slider) {
-      console.warn('⚠️ No se encontraron los contenedores para lugares cercanos.');
-      return;
-    }
-
-    if (nombreSpan) nombreSpan.textContent = comercioOrigen.nombre;
-
-    if (cercanos.length > 0) {
-      // 🧱 Estructura Swiper
-      slider.innerHTML = `
-        <div class="swiper lugaresSwiper">
-          <div class="swiper-wrapper"></div>
-        </div>
-      `;
-
-      const wrapper = slider.querySelector('.swiper-wrapper');
-
-      cercanos.forEach(l => {
-        const slide = document.createElement('div');
-        slide.className = 'swiper-slide';
-        slide.appendChild(cardLugarSlide(l));
-        wrapper.appendChild(slide);
-      });
-
-      container.classList.remove('hidden');
-
-      // 🌀 Inicializar Swiper (centrado y fluido)
-const swiperEl = slider.querySelector('.lugaresSwiper');
-const numSlides = swiperEl.querySelectorAll('.swiper-slide').length;
-
-if (swiperEl.__swiper) swiperEl.__swiper.destroy(true, true);
-
-const swiper = new Swiper(swiperEl, {
-  centeredSlides: true,              // 👈 centra la tarjeta actual
-  slidesPerView: 'auto',             // 👈 calcula ancho automático
-  spaceBetween: 20,
-  loop: true,
-  speed: 900,
-  grabCursor: true,                  // 👈 mejora el control táctil
-  autoplay: {
-    delay: 3200,
-    disableOnInteraction: false,  
-  },
-  slidesOffsetBefore: 16,            // 👈 pequeño margen lateral
-  slidesOffsetAfter: 16,
-  breakpoints: {
-    640: { spaceBetween: 24 },
-    1024: { spaceBetween: 28 },
-  },
-});
-      swiperEl.__swiper = swiper;
-    } else {
-      container.classList.add('hidden');
-    }
+    ultimoCercanos = { cercanos, comercioOrigen };
+    renderizarLugaresCercanos(cercanos, comercioOrigen);
   } catch (err) {
     console.error('❌ Error mostrando lugares cercanos:', err);
   }
 }
+
+window.addEventListener('lang:changed', () => {
+  if (ultimoCercanos) {
+    renderizarLugaresCercanos(ultimoCercanos.cercanos, ultimoCercanos.comercioOrigen);
+  }
+});

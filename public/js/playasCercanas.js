@@ -4,13 +4,23 @@ import { obtenerClima } from './obtenerClima.js';
 import { getDrivingDistance, formatTiempo } from '../shared/osrmClient.js';
 import { calcularTiempoEnVehiculo } from '../shared/utils.js';
 import { calcularDistancia } from './distanciaLugar.js';
+import { t } from './i18n.js';
+
+let ultimoComercio = null;
+let renderizando = false;
 
 export async function mostrarPlayasCercanas(comercio) {
+  if (renderizando) return;
+  renderizando = true;
+  ultimoComercio = comercio;
   const contenedor = document.getElementById('sliderPlayasCercanas');
   const seccion = document.getElementById('cercanosPlayasContainer');
   const nombreSpan = document.getElementById('nombreCercanosPlayas');
 
-  if (!contenedor || !seccion) return;
+  if (!contenedor || !seccion) {
+    renderizando = false;
+    return;
+  }
 
   // 🔹 Verificar si el municipio tiene costa
   const { data: municipioData } = await supabase
@@ -19,7 +29,10 @@ export async function mostrarPlayasCercanas(comercio) {
     .eq('nombre', comercio.municipio)
     .single();
 
-  if (!municipioData?.costa) return;
+  if (!municipioData?.costa) {
+    renderizando = false;
+    return;
+  }
 
   // 🔹 Buscar playas con coordenadas válidas
   const { data: playas, error } = await supabase
@@ -28,7 +41,10 @@ export async function mostrarPlayasCercanas(comercio) {
     .not('latitud', 'is', null)
     .not('longitud', 'is', null);
 
-  if (error || !playas?.length) return;
+  if (error || !playas?.length) {
+    renderizando = false;
+    return;
+  }
 
   // 🔹 Calcular tiempo y distancia
   const conTiempo = await Promise.all(
@@ -64,7 +80,7 @@ export async function mostrarPlayasCercanas(comercio) {
           minutos = fallbackTiempo.minutos;
           texto = formatTiempo(fallbackTiempo.minutos * 60);
         } else {
-          texto = 'N/D';
+          texto = t('area.noDisponible');
         }
       }
 
@@ -85,14 +101,17 @@ export async function mostrarPlayasCercanas(comercio) {
     .filter((p) => p.minutosCrudos !== null && p.minutosCrudos <= 45)
     .sort((a, b) => a.minutosCrudos - b.minutosCrudos);
 
-  if (filtradas.length === 0) return;
+  if (filtradas.length === 0) {
+    renderizando = false;
+    return;
+  }
 
   if (nombreSpan) nombreSpan.textContent = comercio.nombre;
   seccion.classList.remove('hidden');
 
   // 🔹 Estructura Swiper
   contenedor.innerHTML = `
-    <div class="swiper playasSwiper overflow-visible">
+    <div class="swiper playasSwiper w-full overflow-hidden px-1">
       <div class="swiper-wrapper"></div>
     </div>
   `;
@@ -100,7 +119,7 @@ export async function mostrarPlayasCercanas(comercio) {
   const wrapper = contenedor.querySelector('.swiper-wrapper');
 
   for (const playa of filtradas) {
-    const imagenURL =
+      const imagenURL =
       playa.imagen && playa.imagen.trim() !== ''
         ? playa.imagen.trim()
         : "https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/imgPlayaNoDisponible.jpg";
@@ -113,10 +132,10 @@ export async function mostrarPlayasCercanas(comercio) {
       imagen: imagenURL,
       municipio: playa.municipio,
       clima: {
-        estado: clima?.estado || 'Clima desconocido',
+        estado: clima?.estado || t('playas.climaDesconocido'),
         iconoURL: clima?.iconoURL || ''
       },
-      tiempoTexto: playa.tiempoTexto || 'N/D'
+      tiempoTexto: playa.tiempoTexto || t('area.noDisponible')
     });
 
     const slide = document.createElement('div');
@@ -125,27 +144,20 @@ export async function mostrarPlayasCercanas(comercio) {
     wrapper.appendChild(slide);
   }
 
- // 🔹 Inicializar Swiper igual que Comercios (ajustado para mostrar varias tarjetas)
+// 🔹 Inicializar Swiper ajustado al ancho móvil
 const swiperEl = contenedor.querySelector('.playasSwiper');
-const numSlides = swiperEl.querySelectorAll('.swiper-slide').length;
 
-new Swiper(swiperEl, {
-  slidesPerView: 2.7,
-        spaceBetween: 12,
-        loop: true,
-        autoplay: { delay: 3000, disableOnInteraction: false },
-        reverseDirection: true,
-        breakpoints: {
-          640: { slidesPerView: 3, spaceBetween: 18 },
-          1024: { slidesPerView: 4, spaceBetween: 20 },
-  },
-});
+  new Swiper(swiperEl, {
+    slidesPerView: 2.3,
+    spaceBetween: 1,
+    loop: true,
+    autoplay: { delay: 3000, disableOnInteraction: false },
+    speed: 900,
+  });
 
-// 🔹 Asegurar que el carrusel no corte sombras ni slides
-const style = document.createElement('style');
-style.textContent = `
-  .playasSwiper { overflow: visible !important; }
-  .swiper-slide { width: auto !important; overflow: visible !important; }
-`;
-document.head.appendChild(style);
+  renderizando = false;
 }
+
+window.addEventListener('lang:changed', () => {
+  if (ultimoComercio) mostrarPlayasCercanas(ultimoComercio);
+});

@@ -1,13 +1,14 @@
 // ✅ lugaresCarousel.js
 import { supabase } from "../shared/supabaseClient.js";
 import { cardLugarSlide } from "./cardLugarSlide.js";
+import { t } from "./i18n.js";
 
 export async function renderLugaresCarousel(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   try {
-    container.innerHTML = `<p class="text-gray-400 text-center">Cargando lugares...</p>`;
+    container.innerHTML = `<p class="text-gray-400 text-center">${t('area.cargandoLugares')}</p>`;
 
     const filtros = window.filtrosArea || {};
     const { idArea, idMunicipio } = filtros;
@@ -92,8 +93,8 @@ export async function renderLugaresCarousel(containerId) {
       lugares = lugaresArea || [];
 
       if (nombreMunicipio && nombreArea) {
-        mensajeFallback = `No hay lugares disponibles en <b>${nombreMunicipio}</b>. 
-        Te mostramos los más cercanos en el Área <b>${nombreArea}</b>.`;
+        mensajeFallback = `${t('area.noLugaresMunicipio')} <b>${nombreMunicipio}</b>. 
+        ${t('area.mostrarArea')} <b>${nombreArea}</b>.`;
       }
     }
 
@@ -101,10 +102,10 @@ export async function renderLugaresCarousel(containerId) {
     if (!lugares || lugares.length === 0) {
       const mensaje =
         nombreMunicipio
-          ? `No hay lugares disponibles en <b>${nombreMunicipio}</b>.`
+          ? `${t('area.noLugaresMunicipio')} <b>${nombreMunicipio}</b>.`
           : nombreArea
-          ? `No hay lugares disponibles en el Área <b>${nombreArea}</b>.`
-          : "No hay lugares disponibles.";
+          ? `${t('area.noLugaresArea')} <b>${nombreArea}</b>.`
+          : t('area.sinLugares');
       container.innerHTML = `<p class="text-center text-gray-500 my-6">${mensaje}</p>`;
       return;
     }
@@ -116,7 +117,7 @@ export async function renderLugaresCarousel(containerId) {
 
     // 🔹 Crear carrusel
     container.innerHTML += `
-      <div class="swiper lugaresSwiper">
+      <div class="swiper lugaresSwiper w-full overflow-hidden px-1">
         <div class="swiper-wrapper">
           ${lugares
             .map(
@@ -137,11 +138,8 @@ export async function renderLugaresCarousel(containerId) {
       autoplay: { delay: 3000, disableOnInteraction: false, reverseDirection: true },
       speed: 900,
       slidesPerView: 1.2,
-      spaceBetween: 12,
-      breakpoints: {
-        640: { slidesPerView: 2.2, spaceBetween: 20 },
-        1024: { slidesPerView: 3.2, spaceBetween: 24 },
-      },
+      spaceBetween: 8,
+      centeredSlides: false,
     });
 
     // 🔹 Botón “Ver más Lugares”
@@ -150,16 +148,16 @@ export async function renderLugaresCarousel(containerId) {
 
     const btnVerMas = document.createElement("a");
     btnVerMas.href = "listadoLugares.html";
-    btnVerMas.textContent = "Ver más lugares";
+    btnVerMas.textContent = t('area.verMasLugares');
     btnVerMas.className =
-      "bg-[#0B132B] hover:bg-[#1C2541] text-white font-light py-2 px-8 rounded-lg shadow transition";
+      "bg-[#023047] hover:bg-[#023047] text-white font-light py-2 px-8 rounded-lg shadow transition";
 
     btnContainer.appendChild(btnVerMas);
     container.appendChild(btnContainer);
 
   } catch (err) {
     console.error("❌ Error al cargar lugares:", err);
-    container.innerHTML = `<p class="text-red-500 text-center mt-6">Error al cargar los lugares.</p>`;
+    container.innerHTML = `<p class="text-red-500 text-center mt-6">${t('area.errorLugares')}</p>`;
   }
 }
 
@@ -170,5 +168,10 @@ window.addEventListener("areaCargada", async (e) => {
   const { idArea, idMunicipio } = e.detail || {};
   window.filtrosArea = { idArea, idMunicipio };
   console.log("🎯 Recargando lugares con filtros:", window.filtrosArea);
+  await renderLugaresCarousel("lugaresCarousel");
+});
+
+// Re-render al cambiar idioma
+window.addEventListener('lang:changed', async () => {
   await renderLugaresCarousel("lugaresCarousel");
 });

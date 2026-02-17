@@ -2,6 +2,8 @@
 import { supabase } from '../shared/supabaseClient.js';
 import { mostrarMensajeVacio, mostrarError, mostrarCargando } from './mensajesUI.js';
 import { createGlobalBannerElement, destroyCarousel } from './bannerCarousel.js';
+import { t, getLang } from './i18n.js';
+import { abrirModal } from './modalEventos.js';
 
 const lista = document.getElementById('listaEventos');
 const filtroMunicipio = document.getElementById('filtroMunicipio');
@@ -13,21 +15,6 @@ const btnHoy = document.getElementById('btnHoy');
 const btnSemana = document.getElementById('btnSemana');
 const btnGratis = document.getElementById('btnGratis');
 
-// Modal
-const modal = document.getElementById('modalEvento');
-const cerrarModal = document.getElementById('cerrarModal');
-const modalImagen = document.getElementById('modalImagen');
-const modalTitulo = document.getElementById('modalTitulo');
-const modalDescripcion = document.getElementById('modalDescripcion');
-const modalFechaPrincipal = document.getElementById('modalFechaPrincipal');
-const modalHoraPrincipal = document.getElementById('modalHoraPrincipal');
-const modalVerFechas = document.getElementById('modalVerFechas');
-const modalFechasListado = document.getElementById('modalFechasListado');
-const modalLugar = document.getElementById('modalLugar');
-const modalDireccion = document.getElementById('modalDireccion');
-const modalBoletos = document.getElementById('modalBoletos');
-const modalCosto = document.getElementById('modalCosto');
-
 // Estado
 let eventos = [];
 let municipios = {};
@@ -36,14 +23,6 @@ let filtroHoy = false;
 let filtroSemana = false;
 let filtroGratis = false;
 let renderVersion = 0;
-let modalFechasExpandido = false;
-
-modalVerFechas.addEventListener('click', () => {
-  modalFechasExpandido = !modalFechasExpandido;
-  modalFechasListado.classList.toggle('hidden', !modalFechasExpandido);
-  modalVerFechas.textContent = modalFechasExpandido ? 'Ocultar fechas' : 'Ver todas las fechas';
-  modalVerFechas.setAttribute('aria-expanded', String(modalFechasExpandido));
-});
 
 const cleanupCarousels = (container) => {
   if (!container) return;
@@ -123,12 +102,31 @@ async function cargarEventos() {
 
   const { data, error } = await supabase
     .from('eventos')
-    .select('id, nombre, descripcion, costo, gratis, lugar, direccion, municipio_id, categoria, enlaceboletos, imagen, activo, eventoFechas(id, fecha, horainicio, mismahora)')
+    .select(`
+      id,
+      nombre,
+      descripcion,
+      costo,
+      gratis,
+      boletos_por_localidad,
+      categoria,
+      enlaceboletos,
+      imagen,
+      activo,
+      eventos_municipios (
+        id,
+        municipio_id,
+        lugar,
+        direccion,
+        enlaceboletos,
+        eventoFechas (id, fecha, horainicio, mismahora)
+      )
+    `)
     .eq('activo', true);
 
   if (error) {
     console.error('Error cargando eventos:', error);
-    mostrarError(lista, 'No pudimos cargar los eventos.', '🎭');
+    mostrarError(lista, t('eventos.errorCargar'), '🎭');
     return;
   }
 
@@ -136,19 +134,52 @@ async function cargarEventos() {
 
   eventos = (data ?? [])
     .map((evento) => {
-      const { eventoFechas, ...resto } = evento;
-      const fechasOrdenadas = ordenarFechas(eventoFechas || []);
+      const sedes = (evento.eventos_municipios || []).map((sede) => {
+        const municipioNombre = municipios[sede.municipio_id] || '';
+        const fechas = (sede.eventoFechas || []).map((item) => ({
+          id: item.id,
+          fecha: item.fecha,
+          horainicio: item.horainicio,
+          mismahora: item.mismahora ?? false,
+          municipio_id: sede.municipio_id,
+          municipioNombre,
+          lugar: sede.lugar || '',
+          direccion: sede.direccion || '',
+          enlaceboletos: sede.enlaceboletos || ''
+        }));
+        return {
+          id: sede.id,
+          municipio_id: sede.municipio_id,
+          municipioNombre,
+          lugar: sede.lugar || '',
+          direccion: sede.direccion || '',
+          enlaceboletos: sede.enlaceboletos || '',
+          fechas
+        };
+      });
+
+      const municipioIds = Array.from(new Set(sedes.map((sede) => sede.municipio_id).filter(Boolean)));
+      const municipioNombre =
+        municipioIds.length > 1
+          ? t('evento.variosMunicipios')
+          : (municipios[municipioIds[0]] || '');
+
+      const fechasOrdenadas = ordenarFechas(sedes.flatMap((sede) => sede.fechas || []));
       const ultimaFecha = fechasOrdenadas.length
         ? fechasOrdenadas[fechasOrdenadas.length - 1].fecha
         : null;
-      const categoriaInfo = categorias[resto.categoria] || {};
+      const categoriaInfo = categorias[evento.categoria] || {};
       const eventoNormalizado = {
-        ...resto,
-        municipioNombre: municipios[resto.municipio_id] || '',
+        ...evento,
+        sedes,
+        municipioIds,
+        municipioNombre,
         categoriaNombre: categoriaInfo.nombre || '',
         categoriaIcono: categoriaInfo.icono || '',
         fechas: fechasOrdenadas,
-        ultimaFecha
+        eventoFechas: fechasOrdenadas,
+        ultimaFecha,
+        boletos_por_localidad: Boolean(evento.boletos_por_localidad)
       };
       return eventoNormalizado;
     })
@@ -174,10 +205,11 @@ async function renderizarEventos() {
   const muni = filtroMunicipio.value;
   const cat = filtroCategoria.value;
   const orden = filtroOrden.value;
+  const muniId = muni ? Number(muni) : null;
 
   let filtrados = eventos.filter((evento) => {
     const matchTexto = !texto || normalizarTexto(evento.nombre).includes(texto);
-    const matchMuni = !muni || evento.municipio_id == muni;
+    const matchMuni = !muni || (evento.municipioIds || []).includes(Number(muni));
     const matchCat = !cat || evento.categoria == cat;
 
     let matchFiltro = true;
@@ -212,7 +244,7 @@ async function renderizarEventos() {
 
   // Sin resultados
   if (filtrados.length === 0) {
-    mostrarMensajeVacio(lista, 'No se encontraron eventos para los filtros seleccionados.', '🗓️');
+    mostrarMensajeVacio(lista, t('evento.sinResultados'), '🗓️');
     const bannerFinal = await crearBannerElemento('banner-bottom');
     if (currentRender !== renderVersion) return;
     if (bannerFinal) lista.appendChild(bannerFinal);
@@ -225,16 +257,37 @@ async function renderizarEventos() {
 
   for (let i = 0; i < filtrados.length; i++) {
     const evento = filtrados[i];
-    const proxima = obtenerProximaFecha(evento);
+    const fechasBase = Array.isArray(evento.fechas) ? evento.fechas : [];
+    const fechasFiltradas = muniId
+      ? fechasBase.filter((item) => Number(item.municipio_id) === muniId)
+      : fechasBase;
+    const mostrarVariasFechas = fechasFiltradas.length > 1;
+    const proxima = !mostrarVariasFechas
+      ? (fechasFiltradas[0] || obtenerProximaFecha(evento))
+      : null;
     const fechaDetalle = proxima ? obtenerPartesFecha(proxima.fecha) : null;
     const horaTexto = proxima?.horainicio ? formatearHora(proxima.horainicio) : '';
     const iconoCategoria = evento.categoriaIcono ? `<i class="fas ${evento.categoriaIcono}"></i>` : '';
     const costoRaw = evento.costo != null ? String(evento.costo).trim() : '';
+    const costoConSimbolo = /^[\d,.]+$/.test(costoRaw) && !costoRaw.startsWith('$')
+      ? `$${costoRaw}`
+      : costoRaw;
+    const normalizarMonto = (texto) => {
+      const val = String(texto || '').trim();
+      const sinSimbolo = val.replace(/^\s*\$\s*/, '');
+      const esNumero = /^[\d,.]+$/.test(sinSimbolo);
+      if (!val.startsWith('$') && esNumero) return `$${sinSimbolo}`;
+      return val;
+    };
     const costoTexto = evento.gratis
-      ? 'Gratis'
-      : costoRaw
-        ? (costoRaw.toLowerCase().startsWith('costo') ? costoRaw : `Costo: ${costoRaw}`)
-        : 'Costo no disponible';
+      ? t('eventos.gratis')
+      : costoConSimbolo
+        ? (costoConSimbolo.toLowerCase().startsWith('desde')
+          ? `${t('evento.desde')} ${normalizarMonto(costoConSimbolo.replace(/^desde\s*:?/i, '').trim())}`
+          : (costoConSimbolo.toLowerCase().startsWith('costo')
+            ? costoConSimbolo
+            : t('evento.costoLabel', { costo: normalizarMonto(costoConSimbolo) })))
+        : t('evento.costoNoDisponible');
     const div = document.createElement('div');
     div.className = 'bg-white rounded shadow hover:shadow-lg transition overflow-hidden cursor-pointer flex flex-col';
     div.innerHTML = `
@@ -249,15 +302,19 @@ async function renderizarEventos() {
             ${iconoCategoria}
             <span>${evento.categoriaNombre || ''}</span>
           </div>
-          ${fechaDetalle ? `
+          ${mostrarVariasFechas ? `
+            <div class="flex items-center justify-center gap-1 text-base text-red-600 font-medium leading-tight text-center">
+              ${t('evento.variasFechas')}
+            </div>
+          ` : (fechaDetalle ? `
             <div class="flex flex-col items-center justify-center gap-0 text-base text-red-600 font-medium leading-tight">
               <span>${fechaDetalle.weekday}</span>
               <span>${fechaDetalle.resto}</span>
             </div>
           ` : `
-            <div class="flex items-center justify-center gap-1 text-sm text-red-600 font-medium leading-tight">Sin fecha</div>
-          `}
-          ${horaTexto ? `<div class="flex items-center justify-center gap-1 text-sm text-gray-500 leading-tight">${horaTexto}</div>` : ''}
+            <div class="flex items-center justify-center gap-1 text-sm text-red-600 font-medium leading-tight">${t('evento.sinFecha')}</div>
+          `)}
+          ${!mostrarVariasFechas && horaTexto ? `<div class="flex items-center justify-center gap-1 text-sm text-gray-500 leading-tight">${horaTexto}</div>` : ''}
           <div class="flex items-center justify-center gap-1 text-sm font-medium" style="color:#23B4E9;">
             <i class="fa-solid fa-map-pin"></i>
             <span>${evento.municipioNombre}</span>
@@ -297,110 +354,6 @@ async function renderizarEventos() {
   lista.appendChild(fragment);
 }
 
-function abrirModal(evento) {
-  const fechas = Array.isArray(evento.fechas) ? ordenarFechas(evento.fechas) : [];
-  const primeraFecha = fechas[0] || null;
-
-  modalImagen.src = evento.imagen || 'https://placehold.co/400x500?text=Evento';
-  modalImagen.alt = `Imagen de ${evento.nombre || 'Evento'}`;
-  modalTitulo.textContent = evento.nombre || '';
-
-  if (evento.descripcion) {
-    modalDescripcion.textContent = evento.descripcion;
-    modalDescripcion.classList.remove('hidden');
-  } else {
-    modalDescripcion.textContent = '';
-    modalDescripcion.classList.add('hidden');
-  }
-
-  modalFechaPrincipal.innerHTML = '';
-  modalFechaPrincipal.classList.toggle('hidden', false);
-  if (primeraFecha) {
-    const partes = obtenerPartesFecha(primeraFecha.fecha);
-    if (partes) {
-      modalFechaPrincipal.innerHTML = `<div>${partes.weekday}</div><div>${partes.resto}</div>`;
-    } else {
-      modalFechaPrincipal.textContent = formatearFecha(primeraFecha.fecha);
-    }
-  } else {
-    modalFechaPrincipal.textContent = 'Sin fecha';
-  }
-
-  const horaPrincipal = primeraFecha?.horainicio ? formatearHora(primeraFecha.horainicio) : '';
-  modalHoraPrincipal.textContent = horaPrincipal;
-  modalHoraPrincipal.classList.toggle('hidden', !horaPrincipal);
-
-  modalFechasListado.innerHTML = '';
-  let mostrarToggle = false;
-  if (fechas.length > 1) {
-    mostrarToggle = true;
-    modalFechasListado.innerHTML = fechas
-      .map((item) => {
-        const partes = obtenerPartesFecha(item.fecha);
-        const fechaTexto = partes ? `${partes.weekday} · ${partes.resto}` : formatearFecha(item.fecha);
-        const horaTexto = item.horainicio ? formatearHora(item.horainicio) : '';
-        return `<div>${fechaTexto}${horaTexto ? ` • ${horaTexto}` : ''}</div>`;
-      })
-      .join('');
-  }
-
-  modalFechasExpandido = false;
-  modalFechasListado.classList.toggle('hidden', true);
-  modalVerFechas.classList.toggle('hidden', !mostrarToggle);
-  modalVerFechas.textContent = 'Ver todas las fechas';
-  modalVerFechas.setAttribute('aria-expanded', 'false');
-
-  if (evento.lugar) {
-    modalLugar.textContent = evento.lugar;
-    modalLugar.classList.remove('hidden');
-  } else {
-    modalLugar.textContent = '';
-    modalLugar.classList.add('hidden');
-  }
-
-  if (evento.direccion) {
-    modalDireccion.textContent = evento.direccion;
-    modalDireccion.classList.remove('hidden');
-  } else {
-    modalDireccion.textContent = '';
-    modalDireccion.classList.add('hidden');
-  }
-
-  console.log('Modal evento', evento);
-  const costoNumerico = Number.isFinite(Number(evento.costo)) ? Number(evento.costo) : NaN;
-  if (evento.costo === null || (Number.isFinite(costoNumerico) && costoNumerico === 0)) {
-    modalCosto.textContent = 'Gratis';
-    modalBoletos.href = '#';
-    modalBoletos.classList.add('hidden');
-  } else if (Number.isFinite(costoNumerico) && costoNumerico > 0) {
-    modalCosto.textContent = `Costo: $${costoNumerico.toFixed(2)}`;
-    const urlBoletos = evento.urlBoletos || evento.enlaceboletos || '#';
-    modalBoletos.href = urlBoletos || '#';
-    modalBoletos.textContent = 'Comprar boletos';
-    modalBoletos.classList.remove('hidden');
-  } else {
-    const costoBase = evento.costo != null ? String(evento.costo).trim() : '';
-    modalCosto.textContent = costoBase ? costoBase : 'Costo no disponible';
-    const urlBoletos = evento.urlBoletos || evento.enlaceboletos || '#';
-    modalBoletos.href = urlBoletos || '#';
-    modalBoletos.textContent = 'Comprar boletos';
-    if (urlBoletos && urlBoletos !== '#') {
-      modalBoletos.classList.remove('hidden');
-    } else {
-      modalBoletos.classList.add('hidden');
-    }
-  }
-
-  modalCosto.classList.toggle('hidden', !modalCosto.textContent);
-
-  modal.classList.remove('hidden');
-}
-
-cerrarModal.addEventListener('click', () => modal.classList.add('hidden'));
-modal.addEventListener('click', (e) => {
-  if (e.target === modal) modal.classList.add('hidden');
-});
-
 function capitalizarPalabra(texto = '') {
   if (!texto) return '';
   return texto.charAt(0).toUpperCase() + texto.slice(1);
@@ -420,12 +373,28 @@ function estilizarFechaExtendida(fechaLocale = '') {
   return restoTexto ? `${primera}, ${restoTexto}` : primera;
 }
 
+function resolveLocale(langValue) {
+  const lang = (langValue || 'es').toLowerCase().split('-')[0];
+  const map = {
+    es: 'es-PR',
+    en: 'en-US',
+    fr: 'fr-FR',
+    pt: 'pt-PT',
+    de: 'de-DE',
+    it: 'it-IT',
+    zh: 'zh-CN',
+    ko: 'ko-KR',
+    ja: 'ja-JP'
+  };
+  return map[lang] || 'es-PR';
+}
+
 function formatearFecha(fechaStr) {
-  if (!fechaStr) return 'Sin fecha';
+  if (!fechaStr) return t('evento.sinFecha');
   const [year, month, day] = fechaStr.split('-').map(Number);
-  if ([year, month, day].some((value) => Number.isNaN(value))) return 'Sin fecha';
+  if ([year, month, day].some((value) => Number.isNaN(value))) return t('evento.sinFecha');
   const fecha = new Date(Date.UTC(year, month - 1, day));
-  const base = fecha.toLocaleDateString('es-ES', {
+  const base = fecha.toLocaleDateString(resolveLocale(getLang()), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -442,7 +411,7 @@ function formatearHora(horaStr) {
   const minute = Number(minutePart);
   if (Number.isNaN(hour) || Number.isNaN(minute)) return '';
   const fecha = new Date(Date.UTC(1970, 0, 1, hour, minute));
-  const base = fecha.toLocaleTimeString('es-ES', {
+  const base = fecha.toLocaleTimeString(resolveLocale(getLang()), {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
@@ -453,7 +422,7 @@ function formatearHora(horaStr) {
 
 function obtenerPartesFecha(fechaStr) {
   const completa = formatearFecha(fechaStr);
-  if (!completa || completa === 'Sin fecha') return null;
+  if (!completa || completa === t('evento.sinFecha')) return null;
   const [weekday, resto] = completa.split(', ');
   return {
     weekday: weekday || completa,
@@ -469,11 +438,24 @@ async function cargarFiltros() {
     filtroMunicipio.innerHTML += `<option value="${m.id}">${m.nombre}</option>`;
   });
 
-  const { data: cat } = await supabase.from('categoriaEventos').select('id, nombre, icono').order('nombre');
+  await cargarCategorias();
+}
+
+async function cargarCategorias() {
+  const lang = (getLang() || 'es').toLowerCase().split('-')[0];
+  const nombreColumna = `nombre_${lang}`;
+  const { data: cat } = await supabase
+    .from('categoriaEventos')
+    .select(`id, nombre, ${nombreColumna}, icono`)
+    .order('nombre');
+
   categorias = {};
-  cat?.forEach(c => {
-    categorias[c.id] = { nombre: c.nombre, icono: c.icono || '' };
-    filtroCategoria.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+  const label = t('eventos.todasCategorias');
+  filtroCategoria.innerHTML = `<option value="">${label}</option>`;
+  cat?.forEach((c) => {
+    const nombreTraducido = c[nombreColumna] || c.nombre;
+    categorias[c.id] = { nombre: nombreTraducido || '', icono: c.icono || '' };
+    filtroCategoria.innerHTML += `<option value="${c.id}">${nombreTraducido}</option>`;
   });
 }
 
@@ -502,6 +484,11 @@ btnSemana.addEventListener('change', (e) => {
 
 btnGratis.addEventListener('change', (e) => {
   filtroGratis = e.target.checked;
+  renderizarEventos();
+});
+
+window.addEventListener('lang:changed', () => {
+  cargarCategorias();
   renderizarEventos();
 });
 

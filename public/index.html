@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Favicon.png">
+  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Inicio - EnPe Erre</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;600;700&display=swap" rel="stylesheet">
+  <script type="module" src="./js/i18n.js"></script>
   
   <style>
   video::-webkit-media-controls {
@@ -22,10 +23,13 @@ video::-webkit-media-controls-overlay-play-button {
 }</style>
 
 </head>
-<body class="bg-white text-gray-800 pb-24">
+<body class="bg-[#121212]">
         <style>
           body {font-family: 'Kanit', sans-serif;}
         </style>
+
+<div class="min-h-screen flex justify-center bg-[#121212]">
+  <div class="w-full max-w-md bg-white text-gray-800 pb-24">
 
 <div id="headerContainer"></div>
 <script type="module" src="js/header.js"></script>
@@ -36,14 +40,14 @@ video::-webkit-media-controls-overlay-play-button {
 
 
 <section id="categoriasSection" class="text-center">
-  <h2 class="text-2xl font-medium mb-4">Categorías más Buscadas</h2>
+  <h2 class="text-2xl font-medium mb-4" data-i18n="home.categoriasTitulo">Categorías más Buscadas</h2>
   <div id="categoriasContainer" class="grid grid-cols-3 gap-4 px-4"></div>
   <p id="toggleCategorias" class="mt-4 text-sm text-gray-500 cursor-pointer hover:text-gray-700">
-  Ver todas las Categorías...
+  <span data-i18n="home.verTodasCategorias">Ver todas las Categorías...</span>
 </p>
 </section>
 
-<section id="bannerEspeciales" class="my-8 text-center mx-auto w-[60%] max-w-3xl">
+<section id="bannerEspeciales" class="my-8 text-center mx-auto w-[90%] max-w-3xl">
   <a id="bannerLink" href="#">
     <div id="bannerContenido"
          class="w-full max-h-56">
@@ -70,17 +74,17 @@ video::-webkit-media-controls-overlay-play-button {
 </script>
 
 <section class="text-center my-6 px-4">
-  <h2 class="text-2xl font-medium mb-4">¡Aquí <strong>EnPeErre</strong> se come Ca..Brutal!</h2>
+  <h2 class="text-2xl font-medium mb-4" data-i18n="home.comidaTitulo">¡Aquí sí, se come Brutal!</h2>
   <div id="comidaCarousel"></div>
 </section>
 
 <section class="text-center my-6 px-4">
-  <h2 class="text-2xl font-medium mb-4">¿Nos Fuimos pal Jangueo?</h2>
+  <h2 class="text-2xl font-medium mb-4" data-i18n="home.jangueoTitulo">¿Nos Fuimos pal Jangueo?</h2>
   <div id="jangueoCarousel"></div>
 </section>
 
 <section class="text-center my-6 px-4">
-  <h2 class="text-2xl font-medium mb-4">Chequea los prósimos Eventos</h2>
+  <h2 class="text-2xl font-medium mb-4" data-i18n="home.eventosTitulo">Chequea los próximos Eventos</h2>
   <div id="eventosCarousel"></div>
 </section>
 
@@ -88,15 +92,6 @@ video::-webkit-media-controls-overlay-play-button {
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-
-<script type="module">
-  import { renderEventosCarousel } from "./js/eventosCarousel.js";
-  
-  document.addEventListener("DOMContentLoaded", () => {
-    renderEventosCarousel("eventosCarousel");
-  });
-</script>
-
 
 <script type="module">
   import { renderComidaCarousel } from "./js/comidaCarousel.js";
@@ -125,7 +120,7 @@ video::-webkit-media-controls-overlay-play-button {
   <div class="absolute inset-0 bg-gradient-to-r from-blue-500 to-red-400 opacity-40 z-10"></div>
 
   <div class="relative z-20 flex items-center justify-center h-full">
-    <a href="listadoPlayas.html" class="text-white text-3xl font-medium text-center">Vamos Pa' la Playa</a>
+    <a href="listadoPlayas.html" class="text-white text-3xl font-medium text-center" data-i18n="home.vamosPlaya">Vamos Pa' la Playa</a>
   </div>
 </section>
 
@@ -145,33 +140,9 @@ video::-webkit-media-controls-overlay-play-button {
 </script>
 
  <a href="listadoLugares.html" class="text-center my-6 px-4">
- <h2 class="text-2xl font-medium mb-4">Descubre lo que hay en tu Área</h2> </a>
+ <h2 class="text-2xl font-medium mb-4" data-i18n="home.descubreArea">Descubre lo que hay en tu Área</h2> </a>
 
-  <div class="grid grid-cols-2 gap-4 pr-4 pb-4 pl-4">
-        <a href="listadoArea.html?idArea=1">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/areas/SUR.jpg" class="rounded-lg">
-        </a>
-
-        <a href="listadoArea.html?idArea=4">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/areas/NORTE.jpg" class="rounded-lg">
-        </a>
-
-        <a href="listadoArea.html?idArea=5">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/areas/ESTE.jpg" class="rounded-lg">
-        </a>
-
-        <a href="listadoArea.html?idArea=3">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/areas/OESTE.jpg" class="rounded-lg">
-        </a>
-
-        <a href="listadoArea.html?idArea=2">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/areas/METRO.jpg" class="rounded-lg">
-          </a>
-
-          <a href="listadoArea.html?idArea=6">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/areas/CENTRO.jpg" class="rounded-lg">
-            </a>
-    </div>
+  <div id="areasGrid" class="grid grid-cols-2 gap-4 px-4 pb-4"></div>
 
 
 <br>
@@ -184,6 +155,7 @@ video::-webkit-media-controls-overlay-play-button {
 <script type="module" src="js/footer.js"></script>
 
 <script type="module" src="./js/categoriasIndex.js"></script>
+<script type="module" src="./js/areasIndex.js"></script>
 <script type="module" src="./js/especialesBanner.js"></script>
 
 <script type="module" src="./js/bannerCarousel.js"></script>
@@ -223,6 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener("DOMContentLoaded", () => {
     renderEventosCarousel("eventosCarousel");
   });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.initI18n) window.initI18n();
+  });
 </script>
 
 <script type="module">
@@ -235,8 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 </script>
 
-<div id="modalEvento" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden px-4 py-6">
-  <div class="bg-white rounded-lg shadow-lg w-[95%] h-[72%] 
+<div id="modalEvento" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] hidden px-4 py-6">
+  <div class="bg-white rounded-lg shadow-lg w-[95%] h-[85vh] 
               overflow-y-auto relative">
     <div class="flex items-center justify-between px-4 py-2 bg-[#231F20] text-white rounded-t-lg sticky top-0 z-50">
       <h2 id="modalTitulo" class="flex-1 text-center text-2xl font-medium"></h2>
@@ -249,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <img id="modalImagen" src="" alt="Imagen evento" class="w-full h-full object-cover" />
       </div>
       
-      <p id="modalDescripcion" class="text-sm text-justify text-gray-700"></p>
+      <p id="modalDescripcion" class="text-sm text-justify text-gray-700 whitespace-pre-line"></p>
       <div id="modalFechaPrincipal" class="text-2xl text-red-600 font-semibold leading-5 space-y-1"></div>
       <div id="modalHoraPrincipal" class="text-2xl text-gray-600 font-medium"></div>
       <button id="modalVerFechas" type="button" class="text-gray-500 text-base font-medium underline hidden"></button>
@@ -265,5 +241,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <script type="module" src="js/popups.js"></script>
   <script src="js/bloquearPantalla.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.initI18n) window.initI18n();
+    });
+  </script>
+</div>
+</div>
+  <script type="module" src="js/introSplash.js"></script>
 </body>
 </html>

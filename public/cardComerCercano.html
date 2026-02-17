@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Favicon.png">
+  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Tarjeta Comercios Cercanos</title>
@@ -11,6 +11,7 @@
    <style>
     body { font-family: 'Kanit', sans-serif; }
   </style>
+  <script type="module" src="./js/i18n.js"></script>
 </head>
 <body class="bg-gray-100 p-4">
 
@@ -69,5 +70,9 @@
   </div>
   </div>
   <script src="js/bloquearPantalla.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => { if (window.initI18n) window.initI18n(); });
+</script>
+  <script type="module" src="js/introSplash.js"></script>
 </body>
 </html>
