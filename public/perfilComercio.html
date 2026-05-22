@@ -21,6 +21,120 @@
     body {
       font-family: 'Kanit', sans-serif;
     }
+    .perfil-publicaciones-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .perfil-publicaciones-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .lodehoy-media-frame {
+      max-height: min(60vh, 560px);
+    }
+    .lodehoy-media-frame--portrait {
+      height: min(60vh, 560px);
+      min-height: 220px;
+    }
+    .lodehoy-media-frame--landscape {
+      height: auto;
+      min-height: 0;
+    }
+    .lodehoy-media-content {
+      width: 100%;
+      max-height: min(60vh, 560px);
+      object-position: center center;
+      display: block;
+    }
+    .lodehoy-media-fit-cover { object-fit: cover; }
+    .lodehoy-media-fit-contain { object-fit: contain; }
+    #modalGaleria {
+      overscroll-behavior: contain;
+    }
+    .perfil-modal-swiper {
+      overflow: visible;
+    }
+    .perfil-modal-swiper .swiper-slide {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: auto;
+      transition: transform 0.35s ease, filter 0.35s ease, opacity 0.35s ease;
+    }
+    .perfil-modal-swiper .swiper-slide .swiper-zoom-container {
+      width: min(92vw, 430px);
+      height: auto;
+      max-width: min(92vw, 430px);
+      max-height: 72vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      background: transparent;
+    }
+    .perfil-modal-swiper .swiper-slide img {
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 18px;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .perfil-modal-swiper .swiper-slide:not(.swiper-slide-active) {
+      opacity: 0.62;
+      filter: brightness(0.68) blur(1px);
+      transform: scale(0.9);
+    }
+    .perfil-modal-swiper .swiper-slide-active {
+      z-index: 10;
+      opacity: 1;
+      filter: none;
+      transform: scale(1);
+    }
+    .perfil-modal-swiper .swiper-slide-active .swiper-zoom-container {
+      cursor: zoom-in;
+    }
+    .perfil-modal-swiper .swiper-slide-active img {
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.42);
+    }
+    .perfil-modal-swiper .swiper-slide-zoomed .swiper-zoom-container {
+      cursor: zoom-out;
+    }
+    .perfil-modal-swiper .swiper-slide.swiper-slide-zoomed {
+      z-index: 999;
+    }
+    .perfil-modal-swiper .swiper-slide.swiper-slide-zoomed img {
+      position: relative;
+      z-index: 1000;
+    }
+    .staff-galeria-swiper .swiper-slide {
+      height: auto;
+    }
+    .staff-galeria-swiper .swiper-pagination-bullet-active,
+    .staff-lightbox-swiper .swiper-pagination-bullet-active {
+      background: #fb8500;
+    }
+    .staff-lightbox-swiper .swiper-slide {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 58vh;
+    }
+    .staff-lightbox-swiper .swiper-slide img {
+      max-width: min(92vw, 560px);
+      max-height: 72vh;
+      object-fit: contain;
+      border-radius: 14px;
+    }
   </style>
   <script type="module" src="./js/i18n.js"></script>
 </head>
@@ -32,22 +146,23 @@
 <div id="headerContainer"></div>
 <script type="module" src="js/header.js"></script>
 
-<section class="relative pb-8">
+<section id="galeriaSection" class="relative pb-8">
   <div id="galeriaImagenes" class="w-full h-64 overflow-x-auto scroll-smooth flex snap-x snap-mandatory whitespace-nowrap">
   </div>
   
 </section>
 
-<div id="modalGaleria" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center hidden">
-  <div class="relative w-full max-w-lg">
-    <button id="cerrarModal" class="absolute top-3 right-4 text-white text-4xl font-bold z-50">&times;</button>
-    
-    <div class="relative overflow-hidden">
-      <div id="sliderModal" class="flex overflow-hidden transition-transform duration-500 ease-in-out">
+<div id="modalGaleria" class="fixed inset-0 z-[100000] hidden">
+  <div data-modal-backdrop="true" class="absolute inset-0 bg-black/90"></div>
+  <div class="relative h-full w-full flex items-center justify-center px-4 py-6">
+    <button id="cerrarModal" class="fixed top-2 right-3 text-white text-4xl font-bold z-[100001] leading-none">&times;</button>
+    <div class="pointer-events-none absolute top-0 left-0 w-full h-16 bg-gradient-to-b from-black/75 to-transparent"></div>
+    <div class="pointer-events-none absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-black/75 to-transparent"></div>
+
+    <div class="relative w-full max-w-md h-[86vh]">
+      <div id="sliderModal" class="swiper perfil-modal-swiper h-full">
+        <div id="sliderModalWrapper" class="swiper-wrapper"></div>
       </div>
-    <!--  <button id="prevModal" class="absolute left-0 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/50 text-white font-bold px-2 py-1 rounded-l">&#8249;</button>
-      <button id="nextModal" class="absolute right-0 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/50 text-white font-bold px-2 py-1 rounded-r">&#8250;</button>
-    -->
     </div>
   </div>
 </div>
@@ -74,35 +189,51 @@
     <h2 id="nombreComercio" class="text-2xl text-[#424242] text-3xl mt-2 font-semibold mb-2">Nombre del Comercio</h2>
     <p id="nombreSucursal" class="text-xl text-gray-500 font-medium mt-[-10px] mt-4 mb-2"></p>
 
-
     <a href="tel:7870000000" id="telefonoComercio" class="inline-flex items-center justify-center gap-2 text-white text-3xl font-semibold
                bg-red-600 rounded-full px-12 py-[6px] mb-2 shadow hover:bg-red-700 transition 
                mx-auto mt-2 max-w-[100%]">
       <i class="fas fa-phone text-2x1"></i> 787-000-0000
     </a>
-    
-<div id="direccionComercio" class="flex items-center gap-2 text-[#3ea6c4] font-medium text-xl mt-3 leading-none mx-auto w-fit mb-2">
-  <i class="fas fa-map-pin"></i>
-  <span id="textoDireccion"></span>
-</div>
 
+    <div id="tiendaOnlineInfo" class="hidden mt-1 mb-3">
+      <p class="text-lg text-[#424242] font-semibold leading-none">Tienda Online</p>
+      <a
+        id="tiendaOnlineWeb"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center justify-center gap-2 text-[#3ea6c4] font-medium text-xl mt-2 leading-tight mx-auto max-w-[95%] break-all px-3"
+      >
+        <i class="fas fa-shopping-bag"></i>
+        <span id="tiendaOnlineWebText"></span>
+      </a>
+    </div>
 
-    <p id="tiempoVehiculo" class="text-[#9c9c9c] text-xl font-medium  mb-4">
-  <i class="fas fa-car"></i> <span data-i18n="perfilComercio.cargandoDistancia">Cargando distancia...</span>
-</p>
+    <div id="tiendaFisicaInfo" class="hidden">
+      <p class="text-lg text-[#424242] font-semibold mt-2 leading-none">Tienda Física</p>
 
-    <div class="flex justify-center gap-4 mb-6">
-<a id="btnGoogleMaps" href="#" target="_blank">
-    <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//google%20map.jpg"
-         alt="Google Maps" class="shadow-[0px_9px_12px_-7px_rgba(0,_0,_0,_0.3)] rounded-full h-10">
-  </a>
- <a id="btnWaze" href="#" target="_blank">
-    <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//waze.jpg"
-         alt="Waze" class="shadow-[0px_9px_12px_-7px_rgba(0,_0,_0,_0.3)] rounded-full h-10">
-  </a>
-</div>
+      <div id="direccionComercio" class="flex items-center gap-2 text-[#3ea6c4] font-medium text-xl mt-3 leading-none mx-auto w-fit mb-2">
+        <i class="fas fa-map-pin"></i>
+        <span id="textoDireccion"></span>
+      </div>
 
-<div class="flex justify-center gap-3 mb-6">
+      <p id="tiempoVehiculo" class="text-[#9c9c9c] text-xl font-medium mb-4">
+        <i class="fas fa-car"></i> <span data-i18n="perfilComercio.cargandoDistancia">Cargando distancia...</span>
+      </p>
+
+      <div id="mapasContainer" class="flex justify-center gap-4 mb-6">
+        <a id="btnGoogleMaps" href="#" target="_blank">
+          <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//google%20map.jpg"
+               alt="Google Maps" class="shadow-[0px_9px_12px_-7px_rgba(0,_0,_0,_0.3)] rounded-full h-10">
+        </a>
+        <a id="btnWaze" href="#" target="_blank">
+          <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//waze.jpg"
+               alt="Waze" class="shadow-[0px_9px_12px_-7px_rgba(0,_0,_0,_0.3)] rounded-full h-10">
+        </a>
+      </div>
+    </div>
+
+<div id="redesSocialesContainer" class="flex justify-center gap-3 mb-6">
   <a href="#" id="linkFacebook" class="w-10 h-10">
     <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//logoFacebook.png" alt="Facebook">
   </a>
@@ -122,6 +253,32 @@
     <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//logoWeb.png" alt="webpage">
   </a>
 </div>
+
+<section id="seccionProductosTienda" class="hidden px-4 mt-1 mb-6">
+  <div class="bg-white rounded-xl border border-gray-100 px-3 py-4">
+    <h3 class="text-lg text-[#424242] font-semibold text-center mb-3">Productos</h3>
+    <div id="gridProductosTienda" class="grid grid-cols-3 gap-2"></div>
+    <div class="mt-4 flex justify-center">
+      <a
+        id="btnVerMasProductosTienda"
+        href="#"
+        class="inline-flex items-center justify-center rounded-full bg-[#fb8500] text-white text-sm font-normal px-5 py-2"
+      >
+        Ver más productos
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="seccionStaffServicios" class="px-6 md:px-10 mt-2 hidden">
+  <div class="text-center mb-4">
+    <h2 class="text-xl font-semibold text-[#424242]">Nuestro equipo profesional</h2>
+    <p class="text-sm text-gray-500 mt-1">Selecciona un profesional para ver su perfil y reservar cita.</p>
+  </div>
+  <div id="staffServiciosGrid" class="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-2 scroll-smooth"></div>
+  <p id="staffSwipeHint" class="hidden text-[11px] text-center text-gray-400 mt-2">&lt;- Desliza para ver más profesionales -&gt;</p>
+  <p id="staffServiciosEmpty" class="hidden text-sm text-center text-gray-500">Este comercio aún no ha publicado su equipo.</p>
+</section>
 
 <section id="seccionCupones" class="px-6 md:px-10 mt-6 hidden">
   <div class="bg-white rounded-lg shadow-sm p-5">
@@ -182,7 +339,7 @@
 
 
 
-    <section class="px-6 md:px-10 mt-6">
+<section id="seccionDescripcion" class="px-6 md:px-10 mt-6">
   <div class="bg-white rounded-lg shadow-sm p-5">
     <p id="descripcionTexto" class="text-sm text-justify overflow-hidden line-clamp-5 transition-all duration-500 ease-in-out"></p>
     <div class="text-center mt-3">
@@ -193,8 +350,160 @@
   </div>
 </section>
 
+<section id="seccionPublicacionesPerfil" class="px-6 md:px-10 mt-6 hidden">
+  <div class="bg-white rounded-lg shadow-sm p-5">
+    <h2 id="tituloPublicacionesPerfil" class="text-center text-xl font-semibold mb-4 text-[#424242]">Lo de Hoy</h2>
+    <div
+      id="publicacionesPerfilScroller"
+      class="perfil-publicaciones-scroll flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1"
+      aria-label="Publicaciones activas del comercio"
+    ></div>
+  </div>
+</section>
 
-<section class="px-4 py-6 flex justify-center">
+<div id="modalStaffServicios" data-popup-root class="fixed inset-0 z-[100002] hidden">
+  <div id="modalBackdropStaffServicios" data-popup-close class="absolute inset-0 bg-black/70"></div>
+  <div class="relative h-full w-full flex items-center justify-center px-4 py-8">
+    <div id="modalStaffPanel" data-popup-panel class="w-full max-w-sm max-h-[78vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
+      <div class="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+        <div class="min-w-0 flex items-center gap-2">
+          <img id="modalStaffStickyFoto" src="https://placehold.co/48x48?text=Staff" alt="Foto profesional" class="hidden w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0">
+          <p id="modalStaffStickyName" class="text-base font-normal text-[#424242] truncate"></p>
+        </div>
+        <button id="cerrarModalStaffServicios" data-popup-close class="text-2xl leading-none text-gray-500 hover:text-gray-700" aria-label="Cerrar modal de staff">&times;</button>
+      </div>
+
+      <div class="px-4 py-4 space-y-4">
+        <div class="text-center">
+          <img id="staffModalFoto" src="https://placehold.co/120x120?text=Staff" alt="Foto del profesional" class="w-32 h-32 rounded-3xl object-cover border border-gray-200 mx-auto">
+          <div class="min-w-0 mt-3">
+            <h3 id="staffModalNombre" class="text-2xl font-normal text-[#424242] leading-tight"></h3>
+            <p id="staffModalProfesion" class="text-base font-normal text-gray-500 mt-1"></p>
+            <p id="staffModalBio" class="text-base text-gray-600 mt-3"></p>
+          </div>
+        </div>
+
+        <div id="staffModalContacto" class="flex flex-wrap gap-2 justify-center"></div>
+
+        <div>
+          <h4 class="text-base font-normal text-gray-700 mb-2">Galería de trabajos</h4>
+          <div id="staffModalGaleria" class="swiper staff-galeria-swiper">
+            <div id="staffModalGaleriaWrapper" class="swiper-wrapper"></div>
+          </div>
+          <div id="staffModalGaleriaPagination" class="swiper-pagination !relative !bottom-0 mt-1"></div>
+          <p id="staffModalGaleriaVacia" class="hidden text-xs text-gray-500">Este profesional aún no tiene trabajos publicados.</p>
+        </div>
+
+        <div>
+          <h4 class="text-base font-normal text-gray-700 mb-2">Redes sociales</h4>
+          <div id="staffModalRedes" class="flex flex-wrap gap-2 justify-center"></div>
+        </div>
+
+        <div class="border border-gray-200 rounded-xl p-3">
+          <h4 class="text-base font-normal text-gray-700">Reservar cita</h4>
+          <p class="text-xs text-gray-500 mt-1">Selecciona uno o varios servicios, luego fecha y hora.</p>
+
+          <div class="mt-3">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <p class="text-base font-normal text-gray-700">Servicios</p>
+              <button id="btnServiciosLimpiar" type="button" class="hidden text-sm text-[#fb8500] underline underline-offset-2">Limpiar selección</button>
+            </div>
+            <div id="staffServiciosSelector" class="space-y-2"></div>
+            <p id="staffServiciosSelectorEmpty" class="hidden text-xs text-gray-500 mt-1">Este profesional aún no tiene servicios publicados.</p>
+          </div>
+
+          <div class="mt-3">
+            <div class="flex items-center justify-between mb-2">
+              <button id="btnCitasPrevMes" type="button" class="w-8 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-base font-normal" aria-label="Mes anterior">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <p id="calendarioCitasMesLabel" class="text-base font-normal text-gray-700">—</p>
+              <button id="btnCitasNextMes" type="button" class="w-8 h-8 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-base font-normal" aria-label="Mes siguiente">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-7 gap-1 text-xs text-center text-gray-500 mb-1">
+              <span>Dom</span>
+              <span>Lun</span>
+              <span>Mar</span>
+              <span>Mié</span>
+              <span>Jue</span>
+              <span>Vie</span>
+              <span>Sáb</span>
+            </div>
+            <div id="calendarioCitasDias" class="grid grid-cols-7 gap-1.5"></div>
+            <p id="calendarioCitasDiasVacio" class="hidden text-xs text-gray-500 mt-2">Este profesional no tiene disponibilidad en este mes.</p>
+          </div>
+
+          <div class="mt-3">
+            <p id="citasSlotsTitulo" class="text-base font-normal text-gray-600 mb-2">Horarios disponibles</p>
+            <div id="citasSlotsContainer" class="flex flex-wrap gap-2 justify-center"></div>
+            <p id="citasSlotsVacio" class="hidden text-xs text-gray-500 mt-1">No hay horarios disponibles para ese día.</p>
+          </div>
+
+          <form id="formCitaStaff" class="mt-4 space-y-2">
+            <input id="citaFecha" type="hidden" />
+            <input id="citaHora" type="hidden" />
+            <div id="citaResumenProgreso" class="hidden text-base text-gray-500 space-y-1">
+              <div id="citaResumenServiciosRow" class="hidden">
+                <span>Servicios:</span>
+                <span id="citaServiciosLabel" class="text-base text-[#424242] font-normal">Sin seleccionar</span>
+              </div>
+              <div id="citaResumenFechaRow" class="hidden">
+                <span>Fecha:</span>
+                <span id="citaFechaLabel" class="text-base text-[#424242] font-normal">Sin seleccionar</span>
+              </div>
+              <div id="citaResumenHoraRow" class="hidden">
+                <span>Hora:</span>
+                <span id="citaHoraLabel" class="text-base text-[#424242] font-normal">Sin seleccionar</span>
+              </div>
+              <div id="citaResumenTiempoRow" class="hidden">
+                <span>Tiempo Aproximado:</span>
+                <span id="citaTiempoAproxLabel" class="text-base text-[#424242] font-normal">Sin seleccionar</span>
+              </div>
+              <div id="citaResumenCostoRow" class="hidden">
+                <span>Costo Aproximado:</span>
+                <span id="citaCostoAproxLabel" class="text-base text-[#424242] font-normal">Por confirmar</span>
+              </div>
+            </div>
+            <div id="citaFormularioContacto" class="hidden space-y-2">
+              <input id="inputCitaNombre" type="text" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Tu nombre completo" required />
+              <input id="inputCitaTelefono" type="tel" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Teléfono" required />
+              <input id="inputCitaEmail" type="email" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Email (opcional)" />
+              <textarea id="inputCitaNotas" rows="2" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Notas adicionales (opcional)"></textarea>
+              <button id="btnReservarCita" type="submit" class="w-full rounded-lg bg-[#fb8500] text-white font-normal text-base py-2 hover:bg-[#ea7c00] transition">Confirmar cita</button>
+            </div>
+          </form>
+
+          <p id="citaFeedback" class="hidden text-xs mt-2"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalStaffTrabajoViewer" data-popup-root class="fixed inset-0 z-[100003] hidden">
+  <div id="modalBackdropStaffTrabajoViewer" data-popup-close class="absolute inset-0 bg-black/85"></div>
+  <div class="relative h-full w-full flex items-center justify-center px-4 py-6">
+    <button id="cerrarModalStaffTrabajoViewer" data-popup-close class="absolute top-3 right-4 text-white text-3xl leading-none" aria-label="Cerrar galería de trabajos">&times;</button>
+    <div data-popup-panel class="w-full max-w-2xl">
+      <div id="staffTrabajoViewerSlider" class="swiper staff-lightbox-swiper">
+        <div id="staffTrabajoViewerWrapper" class="swiper-wrapper"></div>
+        <button id="staffTrabajoViewerPrev" type="button" class="absolute top-1/2 -translate-y-1/2 left-0 z-10 w-10 h-10 rounded-full bg-black/45 text-white border border-white/30 hover:bg-black/65">
+          <i class="fa-solid fa-chevron-left"></i>
+        </button>
+        <button id="staffTrabajoViewerNext" type="button" class="absolute top-1/2 -translate-y-1/2 right-0 z-10 w-10 h-10 rounded-full bg-black/45 text-white border border-white/30 hover:bg-black/65">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <div id="staffTrabajoViewerPagination" class="swiper-pagination !relative !bottom-0 mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<section id="seccionHorario" class="px-4 py-6 flex justify-center">
   <div class="bg-white rounded-lg shadow-sm p-6 w-full max-w-md">
     <h2 id="tituloHorario" class="text-center text-xl font-semibold mb-1 text-[#424242]" data-i18n="perfilComercio.horarioDeNombre">
       Horario de Nombre
@@ -207,7 +516,7 @@
   </div>
 </section>
 
-<section class="px-6 md:px-10 mt-6">
+<section id="seccionAmenidades" class="px-6 md:px-10 mt-6">
   <div class="bg-white rounded-lg shadow-sm p-6">
     <h2 id="tituloAmenidades" class="text-center text-xl font-semibold mb-4 text-[#424242]" data-i18n="perfilComercio.amenidades">[Nombre] cuenta con:</h2>
     <div id="contenedorAmenidades" class="grid grid-cols-3 gap-4 md:grid-cols-4 lg:grid-cols-5 text-center">
@@ -252,31 +561,9 @@
 
 <br> <br>
 
-<div id="modalMembresiaUp" class="fixed inset-0 bg-black/70 z-[11000] hidden items-center justify-center px-4">
-  <div id="modalMembresiaUpCard" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-5 transform transition duration-300 opacity-0 scale-95 relative">
-    <button type="button" id="modalUpCloseIcon" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-      <i class="fas fa-times text-lg"></i>
-    </button>
-    <div class="flex justify-center">
-      <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/Logo%20UP.png" alt="Logo Membresía Up" class="w-24 h-24 object-contain" />
-    </div>
-    <div class="space-y-2 text-gray-700 text-sm leading-relaxed">
-      <p class="font-semibold text-base text-gray-800">Para guardar y disfrutar de este y otros privilegios EnPeErre necesitas una Membresía Up.</p>
-      <p>¡Aprovecha la promoción y obténla completamente GRATIS hasta el 31 de diciembre de 2025!</p>
-      <p class="text-xs text-gray-500">A partir del 1 de enero de 2026 el costo será de $9.95 al mes.</p>
-    </div>
-    <div class="space-y-3">
-      <button type="button" id="modalUpSubmit" class="w-full py-2.5 rounded-xl bg-sky-500 text-white font-semibold transition hover:bg-sky-600">Hazte Up Ahora</button>
-      <button type="button" id="modalUpClose" class="w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">Cerrar</button>
-    </div>
-  </div>
-</div>
-
-
-
 <script type="module" src="./js/ubicacionGoogle.js"></script>
 <script type="module" src="./shared/supabaseClient.js"></script>
-<script type="module" src="./js/utils.js"></script>
+<script type="module" src="./shared/utils.js"></script>
 <script type="module" src="./js/perfil.js"></script>
 <script type="module" src="./js/especialesComercio.js"></script> 
 <script type="module" src="./js/galeria.js"></script>
@@ -309,20 +596,6 @@
 <div id="footerContainer"></div>
 <script type="module" src="js/footer.js"></script>
 
-<script type="module">
-  import { mostrarLugaresCercanos } from './mostrarLugaresCercanos.js';
-  import { obtenerComercioPorID } from './perfil.js'; // Asumiendo que ahí cargas el comercio
-
-  const params = new URLSearchParams(window.location.search);
-  const id = params.get("id");
-  if (id) {
-    obtenerComercioPorID(id).then(comercio => {
-      if (comercio) {
-        mostrarLugaresCercanos(comercio);
-      }
-    });
-  }
-</script>
   <script src="js/bloquearPantalla.js"></script>
 </div>
 </div>
@@ -330,5 +603,6 @@
   document.addEventListener('DOMContentLoaded', () => { if (window.initI18n) window.initI18n(); });
 </script>
   <script type="module" src="js/introSplash.js"></script>
+  <script type="module" src="js/betaBanner.js"></script>
 </body>
 </html>

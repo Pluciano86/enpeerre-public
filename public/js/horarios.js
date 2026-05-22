@@ -1,5 +1,11 @@
 import { supabase } from '../shared/supabaseClient.js';
 import { formatearHorario } from '../shared/utils.js';
+import {
+  evaluarHorarioActual,
+  formato12Horas,
+  minutosDesdeMedianoche,
+  obtenerProximoDiaAbierto,
+} from '../shared/pkg/perfil/comercio.js';
 import { t } from './i18n.js';
 
 const idComercio = new URLSearchParams(window.location.search).get('id');
@@ -12,75 +18,63 @@ const getDiasSemana = () => ([
   t('days.friday'),
   t('days.saturday'),
 ]);
-const hoy = new Date();
-const diaActual = hoy.getDay();
-const horaActual = hoy.toTimeString().slice(0, 5);
-
 const tituloHorario = document.getElementById('tituloHorario');
 const estadoHorario = document.getElementById('estadoHorario');
 const tablaHorarios = document.getElementById('tablaHorarios');
+const seccionHorario = document.getElementById('seccionHorario');
 
-function formato12Horas(horaStr) {
-  if (!horaStr) return '--:--';
-  const [hora, minutos] = horaStr.split(':').map(Number);
-  const ampm = hora >= 12 ? 'PM' : 'AM';
-  const hora12 = hora % 12 === 0 ? 12 : hora % 12;
-  return `${hora12}:${minutos.toString().padStart(2, '0')} ${ampm}`;
+function resolveStoreMode(comercio = {}) {
+  const hasFisica = typeof comercio?.tiendaFisica === 'boolean';
+  const hasOnline = typeof comercio?.tiendaOnline === 'boolean';
+  const tiendaFisica = hasFisica ? comercio.tiendaFisica : true;
+  const tiendaOnline = hasOnline ? comercio.tiendaOnline : false;
+  return {
+    tiendaFisica: tiendaFisica !== false,
+    tiendaOnline: tiendaOnline === true,
+  };
 }
 
-function obtenerProximoDiaAbierto(horarios, diaActual) {
-  for (let i = 1; i <= 7; i++) {
-    const diaSiguiente = (diaActual + i) % 7;
-    const diaHorario = horarios.find(h => h.diaSemana === diaSiguiente);
-    if (diaHorario && !diaHorario.cerrado && diaHorario.apertura && diaHorario.cierre) {
-      const diasSemana = getDiasSemana();
-      return {
-        nombre: diasSemana[diaSiguiente],
-        apertura: formato12Horas(diaHorario.apertura?.slice(0, 5)),
-        esManana: i === 1
-      };
-    }
-  }
-  return null;
-}
-
-function minutosDesdeMedianoche(horaStr) {
-  if (!horaStr) return null;
-  const [hora, minuto] = horaStr.split(':').map(Number);
-  return hora * 60 + minuto;
-}
-
-function estaAbierto(horarios, diaActual, horaActual) {
-  if (!Array.isArray(horarios) || !horarios.length) return { abierto: false };
-  const horaMin = minutosDesdeMedianoche(horaActual);
-  const hoy = horarios.find(h => h.diaSemana === diaActual);
-  const ayer = horarios.find(h => h.diaSemana === (diaActual + 6) % 7);
-
-  if (hoy && !hoy.cerrado && hoy.apertura && hoy.cierre && horaMin !== null) {
-    const apertura = minutosDesdeMedianoche(hoy.apertura.slice(0, 5));
-    const cierre = minutosDesdeMedianoche(hoy.cierre.slice(0, 5));
-    if (apertura === null || cierre === null) return { abierto: false };
-    if (apertura < cierre) {
-      if (horaMin >= apertura && horaMin < cierre) return { abierto: true, cierreHoy: hoy.cierre };
-    } else {
-      if (horaMin >= apertura || horaMin < cierre) return { abierto: true, cierreHoy: hoy.cierre };
-    }
-  }
-
-  if (ayer && !ayer.cerrado && ayer.apertura && ayer.cierre && horaMin !== null) {
-    const apertura = minutosDesdeMedianoche(ayer.apertura.slice(0, 5));
-    const cierre = minutosDesdeMedianoche(ayer.cierre.slice(0, 5));
-    if (apertura === null || cierre === null) return { abierto: false };
-    if (apertura > cierre && horaMin < cierre) {
-      return { abierto: true, cierreHoy: ayer.cierre };
-    }
-  }
-
-  return { abierto: false };
+function isMissingStoreColumnsError(error) {
+  if (!error) return false;
+  const hayCodigo = String(error.code || '').toLowerCase();
+  const detalle = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
+  if (!/tiendafisica|tiendaonline/.test(detalle)) return false;
+  return hayCodigo === '42703' || hayCodigo.startsWith('pgrst') || hayCodigo === '' || hayCodigo === '400';
 }
 
 async function cargarHorarios() {
-  const { data: comercio } = await supabase.from('Comercios').select('nombre').eq('id', idComercio).maybeSingle();
+  let comercio = null;
+  let storeMode = window.__PERFIL_COMERCIO_STORE_MODE__ || null;
+
+  if (storeMode) {
+    const { data } = await supabase.from('Comercios').select('nombre').eq('id', idComercio).maybeSingle();
+    comercio = data || null;
+  } else {
+    let lookup = await supabase
+      .from('Comercios')
+      .select('nombre,tiendaFisica,tiendaOnline')
+      .eq('id', idComercio)
+      .maybeSingle();
+
+    if (isMissingStoreColumnsError(lookup.error)) {
+      lookup = await supabase
+        .from('Comercios')
+        .select('nombre')
+        .eq('id', idComercio)
+        .maybeSingle();
+    }
+
+    comercio = lookup.data || null;
+    storeMode = resolveStoreMode(comercio || {});
+    window.__PERFIL_COMERCIO_STORE_MODE__ = storeMode;
+  }
+
+  if (storeMode?.tiendaFisica === false) {
+    seccionHorario?.classList.add('hidden');
+    tablaHorarios.innerHTML = '';
+    return;
+  }
+
   const { data: horarios, error } = await supabase
     .from('Horarios')
     .select('diaSemana, apertura, cierre, cerrado')
@@ -89,6 +83,7 @@ async function cargarHorarios() {
 
   if (!horarios || error) {
     console.error('No se pudieron cargar horarios', error);
+    seccionHorario?.classList.add('hidden');
     return;
   }
 
@@ -104,16 +99,16 @@ async function cargarHorarios() {
   );
 
   if (!horariosValidos.length) {
-    tituloHorario.textContent = t('perfilComercio.horarioDe', { nombre: comercio?.nombre || '' });
-    estadoHorario.innerHTML = `
-      <p class="font-semibold text-2xl text-gray-500">${t('perfilComercio.horarioNoDisponible')}</p>
-      <p class="text-sm font-normal text-gray-600"></p>
-    `;
+    seccionHorario?.classList.add('hidden');
     tablaHorarios.innerHTML = '';
     return;
   }
 
-  const resultado = estaAbierto(horariosValidos, diaActual, horaActual);
+  seccionHorario?.classList.remove('hidden');
+  const now = new Date();
+  const diaActual = now.getDay();
+  const horaActual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const resultado = evaluarHorarioActual(horariosValidos, diaActual, horaActual);
   const abierto = resultado.abierto;
   const cierreHoy = resultado.cierreHoy;
 
@@ -124,8 +119,9 @@ async function cargarHorarios() {
   } else if (!abierto) {
     const proximo = obtenerProximoDiaAbierto(horariosValidos, diaActual);
     if (proximo) {
-      const cuando = proximo.esManana ? t('perfilComercio.manana') : proximo.nombre;
-      mensajeEstado = t('perfilComercio.abreDia', { dia: cuando, hora: proximo.apertura });
+      const diaTexto = getDiasSemana()[proximo.diaSemana] || '';
+      const cuando = proximo.esManana ? t('perfilComercio.manana') : diaTexto;
+      mensajeEstado = t('perfilComercio.abreDia', { dia: cuando, hora: formato12Horas(proximo.apertura) });
     }
   }
 

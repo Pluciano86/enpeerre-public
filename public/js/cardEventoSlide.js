@@ -1,5 +1,5 @@
 import { t } from "./i18n.js";
-import { abrirModal } from "./modalEventos.js";
+import { toHorizontalEventImage } from "../shared/eventoImage.js";
 
 const localeMap = {
   es: "es-ES",
@@ -90,7 +90,7 @@ export function cardEventoSlide(evento) {
   const fechaDetalle = obtenerPartesFecha(fecha);
   const horaBase = horainicio || hora || "";
   const horaFormateada = formatearHora(horaBase);
-  const urlImagen = imagen || "https://placehold.co/200x120?text=Evento";
+  const urlImagen = toHorizontalEventImage(imagen) || "https://placehold.co/200x120?text=Evento";
   const municipioLabel =
     municipioNombre ||
     (Array.isArray(evento.municipioIds) && evento.municipioIds.length > 1 ? t("evento.variosMunicipios") : "") ||
@@ -101,6 +101,7 @@ export function cardEventoSlide(evento) {
     ? (/^[\d,.]+$/.test(costo) && !String(costo).startsWith("$") ? `$${costo}` : costo)
     : t("area.noDisponible");
   const iconoHTML = categoriaIcono ? `<i class="fas ${categoriaIcono}"></i>` : "";
+  const nombreClass = (nombre || "").length > 25 ? "text-xs" : "text-sm";
 
   const card = document.createElement("div");
   card.className = "block w-40 shrink-0 rounded-xl overflow-hidden shadow bg-white relative";
@@ -110,7 +111,7 @@ export function cardEventoSlide(evento) {
       <img src="${urlImagen}" alt="Imagen de ${nombre}" class="w-full h-full object-cover" />
     </div>
     <div class="pt-2 px-2 pb-3 text-center flex flex-col gap-2">
-      <h3 class="flex items-center justify-center text-center text-sm font-bold line-clamp-2 h-12">${nombre}</h3>
+      <h3 class="flex items-center justify-center text-center ${nombreClass} font-bold line-clamp-2 h-12">${nombre}</h3>
       <div class="flex items-center justify-center gap-1 text-[12px] text-orange-500">
         ${iconoHTML}
         <span>${categoriaNombre}</span>
@@ -137,26 +138,7 @@ export function cardEventoSlide(evento) {
   `;
 
   card.addEventListener("click", () => {
-    if (document.getElementById("modalEvento")) {
-      const eventoPayload = evento.eventoFechas
-        ? evento
-        : {
-            ...evento,
-            enlaceboletos: evento.enlaceboletos || "",
-            boletos_por_localidad: Boolean(evento.boletos_por_localidad),
-            eventoFechas: evento.fecha
-              ? [{
-                  fecha: evento.fecha,
-                  horainicio: evento.horainicio || evento.hora || "",
-                  lugar: evento.lugar || "",
-                  municipioNombre: municipioNombre || "",
-                }]
-              : []
-          };
-      abrirModal(eventoPayload);
-    } else {
-      window.location.href = `perfilEvento.html?id=${id}`;
-    }
+    window.location.href = `perfilEvento.html?id=${encodeURIComponent(id)}`;
   });
 
   return card;

@@ -4,6 +4,7 @@ import { supabase } from '../shared/supabaseClient.js';
 import { getPublicBase, calcularTiempoEnVehiculo } from '../shared/utils.js';
 import { getDrivingDistance, formatTiempo } from '../shared/osrmClient.js';
 import { calcularDistancia } from './distanciaLugar.js';
+import { resolverPlanComercio } from '../shared/planes.js';
 
 let ultimoCercanos = null;
 
@@ -20,7 +21,7 @@ function renderizarCercanos(cercanos) {
 
   if (traducidos.length > 0) {
     slider.innerHTML = `
-      <div class="swiper cercanosSwiper w-full overflow-hidden px-1">
+      <div class="swiper cercanosSwiper w-full overflow-hidden px-1 py-[6px]">
         <div class="swiper-wrapper"></div>
       </div>
     `;
@@ -35,10 +36,11 @@ function renderizarCercanos(cercanos) {
 
     container.classList.remove("hidden");
     const swiperEl = slider.querySelector(".cercanosSwiper");
+    const totalSlides = swiperEl.querySelectorAll('.swiper-slide').length;
     new Swiper(swiperEl, {
       slidesPerView: 2.3,
       spaceBetween: 1,
-      loop: true,
+      loop: totalSlides > 3,
       autoplay: { delay: 3000, disableOnInteraction: false },
       speed: 900,
     });
@@ -48,7 +50,14 @@ function renderizarCercanos(cercanos) {
   }
 }
 
-export async function mostrarCercanosComida(comercioOrigen) {
+export async function mostrarCercanosComida(comercioOrigen, opciones = {}) {
+  const {
+    maxMinutes = 10,
+    maxAirDistanceKm = null,
+    limitCandidates = null,
+    sameMunicipioFirst = false,
+    skipRouteApi = false,
+  } = opciones || {};
   const origenCoords = { lat: comercioOrigen.latitud, lon: comercioOrigen.longitud };
 
   if (!origenCoords.lat || !origenCoords.lon) {
@@ -73,10 +82,22 @@ export async function mostrarCercanosComida(comercioOrigen) {
         id,
         nombre,
         municipio,
+        telefono,
         latitud,
         longitud,
         activo,
         idMunicipio,
+        plan_id,
+        plan_nivel,
+        plan_nombre,
+        permite_perfil,
+        aparece_en_cercanos,
+        permite_menu,
+        permite_especiales,
+        permite_ordenes,
+        estado_propiedad,
+        estado_verificacion,
+        propietario_verificado,
         ComercioCategorias ( idCategoria )
       `)
       .eq('activo', true)
@@ -85,9 +106,9 @@ export async function mostrarCercanosComida(comercioOrigen) {
     if (error) throw error;
 
     // 🔹 Filtrar solo los que pertenecen a las categorías válidas
-    const comerciosFiltrados = comercios.filter((c) =>
-      c.ComercioCategorias?.some((cc) => categoriasValidas.includes(cc.idCategoria))
-    );
+    const comerciosFiltrados = comercios
+      .filter((c) => c.ComercioCategorias?.some((cc) => categoriasValidas.includes(cc.idCategoria)))
+      .filter((c) => resolverPlanComercio(c).aparece_en_cercanos);
 
     const comerciosConCoords = comerciosFiltrados.filter(c =>
       typeof c.latitud === 'number' &&
@@ -96,15 +117,42 @@ export async function mostrarCercanosComida(comercioOrigen) {
       !isNaN(c.longitud)
     );
 
-    console.log(`🍽️ ${comerciosConCoords.length} comercios de comida con coordenadas encontrados.`);
+    let candidatos = [...comerciosConCoords];
+
+    if (sameMunicipioFirst && comercioOrigen?.municipio) {
+      const muniNorm = String(comercioOrigen.municipio || '').trim().toLowerCase();
+      const same = candidatos.filter((c) => String(c.municipio || '').trim().toLowerCase() === muniNorm);
+      const others = candidatos.filter((c) => String(c.municipio || '').trim().toLowerCase() !== muniNorm);
+      candidatos = [...same, ...others];
+    }
+
+    if (Number.isFinite(Number(maxAirDistanceKm)) && Number(maxAirDistanceKm) > 0) {
+      const kmMax = Number(maxAirDistanceKm);
+      candidatos = candidatos.filter((comercio) => {
+        const km = calcularDistancia(origenCoords.lat, origenCoords.lon, comercio.latitud, comercio.longitud);
+        return Number.isFinite(km) && km <= kmMax;
+      });
+    }
+
+    if (Number.isFinite(Number(limitCandidates)) && Number(limitCandidates) > 0) {
+      candidatos = candidatos
+        .map((c) => ({
+          ...c,
+          _airKm: calcularDistancia(origenCoords.lat, origenCoords.lon, c.latitud, c.longitud),
+        }))
+        .sort((a, b) => (a._airKm ?? Infinity) - (b._airKm ?? Infinity))
+        .slice(0, Number(limitCandidates));
+    }
 
     // 🔹 Calcular distancia y tiempo en vehículo
     const listaConTiempos = await Promise.all(
-      comerciosConCoords.map(async (comercio) => {
-        const resultado = await getDrivingDistance(
-          { lat: origenCoords.lat, lng: origenCoords.lon },
-          { lat: comercio.latitud, lng: comercio.longitud }
-        );
+      candidatos.map(async (comercio) => {
+        const resultado = skipRouteApi
+          ? null
+          : await getDrivingDistance(
+              { lat: origenCoords.lat, lng: origenCoords.lon },
+              { lat: comercio.latitud, lng: comercio.longitud }
+            );
 
         let minutos = null;
         let texto = null;
@@ -181,10 +229,8 @@ export async function mostrarCercanosComida(comercioOrigen) {
 
     // 🔹 Filtrar los más cercanos (máximo 10 minutos)
     const cercanos = listaConTiempos
-      .filter((c) => c.minutosCrudos !== null && c.minutosCrudos <= 10)
+      .filter((c) => c.minutosCrudos !== null && c.minutosCrudos <= Number(maxMinutes))
       .sort((a, b) => a.minutosCrudos - b.minutosCrudos);
-
-    console.log(`✅ ${cercanos.length} comercios cercanos encontrados.`);
 
     ultimoCercanos = cercanos;
     renderizarCercanos(cercanos);

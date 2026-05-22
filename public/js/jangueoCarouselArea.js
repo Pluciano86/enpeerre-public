@@ -1,4 +1,5 @@
 import { supabase } from "../shared/supabaseClient.js";
+import { resolverPlanComercio } from "../shared/planes.js";
 
 /**
  * 🔹 Carrusel de "Aquí hay Jangueo 🔥"
@@ -59,6 +60,17 @@ export async function renderJangueoCarouselArea(containerId) {
         activo,
         idArea,
         idMunicipio,
+        plan_id,
+        plan_nivel,
+        plan_nombre,
+        permite_perfil,
+        aparece_en_cercanos,
+        permite_menu,
+        permite_especiales,
+        permite_ordenes,
+        estado_propiedad,
+        estado_verificacion,
+        propietario_verificado,
         ComercioCategorias ( idCategoria )
       `)
       .eq("activo", true)
@@ -67,9 +79,9 @@ export async function renderJangueoCarouselArea(containerId) {
     if (comerciosError) throw comerciosError;
 
     // 🔹 Filtrar categoría JANGUEO
-    let comerciosFiltrados = comercios.filter((c) =>
-      c.ComercioCategorias?.some((cc) => cc.idCategoria === idJangueo)
-    );
+    let comerciosFiltrados = comercios
+      .filter((c) => c.ComercioCategorias?.some((cc) => cc.idCategoria === idJangueo))
+      .filter((c) => resolverPlanComercio(c).aparece_en_cercanos);
 
     // 🔸 Filtrar por municipio o área
     if (idMunicipio) {
@@ -90,11 +102,13 @@ export async function renderJangueoCarouselArea(containerId) {
     if ((!comerciosFiltrados || comerciosFiltrados.length === 0) && idArea) {
       console.warn("⚠️ Sin lugares de jangueo en el municipio, cargando por área...");
 
-      comerciosFiltrados = comercios.filter(
-        (c) =>
-          municipiosIds.includes(c.idMunicipio) &&
-          c.ComercioCategorias?.some((cc) => cc.idCategoria === idJangueo)
-      );
+      comerciosFiltrados = comercios
+        .filter(
+          (c) =>
+            municipiosIds.includes(c.idMunicipio) &&
+            c.ComercioCategorias?.some((cc) => cc.idCategoria === idJangueo)
+        )
+        .filter((c) => resolverPlanComercio(c).aparece_en_cercanos);
 
       if (nombreMunicipio && nombreArea) {
         mensajeFallback = `

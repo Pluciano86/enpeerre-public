@@ -1,4 +1,5 @@
 import { supabase } from '../shared/supabaseClient.js';
+import { formatearTelefonoDisplay, formatearTelefonoHref, getPublicBase } from '../shared/utils.js';
 
 const ORDER_HISTORY_KEY = 'findixi_orders';
 const tabActivos = document.getElementById('tabActivos');
@@ -33,11 +34,48 @@ const statusLabels = {
   preparing: 'En preparación',
   ready: 'Lista para recoger',
   paid: 'Pagada',
+  delivered: 'Entregado',
   completed: 'Completada',
   cancelled: 'Cancelada',
   canceled: 'Cancelada',
   refunded: 'Reembolsada',
 };
+
+function normalizeStatus(status) {
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+
+  if (!raw) return 'pending';
+
+  if (raw.includes('cancel')) return 'cancelled';
+  if (raw.includes('refund') || raw.includes('reembols')) return 'refunded';
+  if (raw.includes('deliver') || raw.includes('entreg')) return 'delivered';
+  if (raw.includes('complete') || raw.includes('complet') || raw.includes('closed') || raw.includes('done')) return 'completed';
+  if (raw.includes('ready') || raw.includes('list')) return 'ready';
+  if (raw.includes('prepar')) return 'preparing';
+  if (raw.includes('confirm')) return 'confirmed';
+  if (raw.includes('paid') || raw.includes('pagad')) return 'paid';
+  if (raw.includes('open') || raw.includes('sent') || raw.includes('pending') || raw.includes('recib')) return 'pending';
+
+  return raw;
+}
+
+function getStatusLabel(status) {
+  const normalized = normalizeStatus(status);
+  if (statusLabels[normalized]) return statusLabels[normalized];
+
+  const raw = String(status || '').trim();
+  if (!raw) return 'En proceso';
+
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
 
 function loadOrderHistory() {
   if (typeof localStorage === 'undefined') return [];
@@ -71,7 +109,7 @@ async function fetchOrdersByToken(token) {
     .maybeSingle();
   if (error || !data) return [];
   const expired = data.order_link_expires_at && new Date(data.order_link_expires_at).getTime() < Date.now();
-  const status = String(data.status || '').toLowerCase();
+  const status = normalizeStatus(data.status);
   if (expired || STATUS_PAST.has(status)) {
     return [{ ...data, link_expired: true }];
   }
@@ -87,6 +125,22 @@ async function fetchOrdersByEmail(email) {
     .order('created_at', { ascending: false });
   if (error || !data) return [];
   return data;
+}
+
+async function fetchOrdersByUserId(userId) {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from('ordenes')
+    .select('id, idcomercio, clover_order_id, checkout_url, total, status, created_at, order_type, mesa, source')
+    .eq('customer_user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (!error && data) return data;
+
+  const msg = String(error?.message || '').toLowerCase();
+  const missingCol = msg.includes('customer_user_id') && msg.includes('does not exist');
+  if (missingCol) return [];
+  return [];
 }
 
 function setLoading(isLoading) {
@@ -117,15 +171,16 @@ function formatDate(value) {
 }
 
 function statusToStep(status) {
-  const s = String(status || '').toLowerCase();
-  if (s === 'ready') return 4;
-  if (s === 'preparing') return 3;
-  if (s === 'confirmed' || s === 'paid') return 2;
+  const s = normalizeStatus(status);
+  if (STATUS_PAST.has(s)) return 3;
+  if (s === 'ready') return 3;
+  if (s === 'preparing') return 2;
+  if (s === 'confirmed') return 2;
   return 1;
 }
 
 function isActiveStatus(status) {
-  const s = String(status || '').toLowerCase();
+  const s = normalizeStatus(status);
   if (STATUS_PAST.has(s)) return false;
   if (STATUS_ACTIVE.has(s)) return true;
   return true;
@@ -141,104 +196,188 @@ function buildWazeUrl(lat, lon) {
   return `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`;
 }
 
+function resolveLogoUrl(rawValue) {
+  const raw = String(rawValue ?? '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('http')) return raw;
+  return getPublicBase(`galeriacomercios/${raw}`);
+}
+
 function buildOrderCard(order, commerce, items) {
-  const status = String(order.status || 'pending').toLowerCase();
+  const status = normalizeStatus(order.status);
+  const isActiveOrder = isActiveStatus(status);
   const step = statusToStep(status);
-  const statusLabel = statusLabels[status] || 'En proceso';
+  const statusLabel = getStatusLabel(order.status);
   const created = formatDate(order.created_at || order.created_at_local);
   const total = Number(order.total) || items.reduce((sum, item) => sum + item.lineTotal, 0);
   const lat = Number(commerce?.latitud);
   const lon = Number(commerce?.longitud);
   const mapUrl = buildMapsUrl(lat, lon);
   const wazeUrl = buildWazeUrl(lat, lon);
+  const telefonoDisplay = commerce?.telefono ? formatearTelefonoDisplay(commerce.telefono) : '';
+  const telefonoHref = commerce?.telefono ? formatearTelefonoHref(commerce.telefono) : '';
 
-  const card = document.createElement('div');
-  card.className = 'bg-white border border-gray-100 shadow-sm rounded-2xl p-4 space-y-3';
+  const card = document.createElement('article');
+  card.className = 'order-card bg-white rounded-3xl overflow-hidden';
 
   const logoUrl = commerce?.logoUrl;
   const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" alt="${commerce?.nombre || 'Comercio'}" class="w-full h-full object-cover">`
-    : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">Sin logo</div>`;
+    ? `<img src="${logoUrl}" alt="${commerce?.nombre || 'Comercio'}" class="w-full h-full object-contain">`
+    : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm font-medium">Sin logo</div>`;
 
   const itemsHtml = items.map((item) => {
     const mods = item.modifiers?.items || [];
-    const modsHtml = mods.length
-      ? `<div class="text-xs text-gray-500">${mods.map((m) => {
+    const grouped = new Map();
+    mods.forEach((m) => {
+      const group = (m.grupo || m.grupo_nombre || 'Opciones').trim();
+      const list = grouped.get(group) || [];
+      list.push(m);
+      grouped.set(group, list);
+    });
+    const modsHtml = Array.from(grouped.entries()).map(([group, list]) => {
+      const lines = list.map((m) => {
         const extra = Number(m.precio_extra);
         const extraLabel = Number.isFinite(extra) && extra > 0 ? ` (+$${extra.toFixed(2)})` : '';
-        return `${m.nombre || 'Opción'}${extraLabel}`;
-      }).join(', ')}</div>`
-      : '';
-    const noteHtml = item.modifiers?.nota ? `<div class="text-xs text-gray-500">Nota: ${item.modifiers.nota}</div>` : '';
+        return `• ${m.nombre || 'Opción'}${extraLabel}`;
+      }).join('<br>');
+      return `
+        <div class="text-xs text-gray-500">
+          <span class="font-medium text-gray-600">${group}:</span><br>${lines}
+        </div>
+      `;
+    }).join('');
+    const noteHtml = item.modifiers?.nota ? `<div class="text-sm font-medium text-gray-500">Nota: ${item.modifiers.nota}</div>` : '';
     return `
       <div class="flex justify-between gap-2">
-        <div>
-          <div class="text-sm font-semibold">${item.nombre}</div>
+        <div class="text-left">
+          <div class="text-base font-medium text-slate-800">${item.nombre}</div>
           ${modsHtml}
           ${noteHtml}
         </div>
-        <div class="text-sm font-semibold">${formatMoney(item.lineTotal)}</div>
+        <div class="text-base font-medium text-slate-800">${formatMoney(item.lineTotal)}</div>
       </div>
     `;
   }).join('');
 
   const steps = [
-    { icon: 'fa-inbox', label: `Orden recibida por ${commerce?.nombre || 'comercio'}` },
-    { icon: 'fa-circle-check', label: 'Orden recibida y confirmada' },
-    { icon: 'fa-kitchen-set', label: 'Orden en preparación' },
-    { icon: 'fa-bag-shopping', label: 'Orden lista para recoger' },
+    { icon: 'fa-circle-check', label: 'Confirmado' },
+    { icon: 'fa-kitchen-set', label: 'En preparación' },
+    { icon: 'fa-bag-shopping', label: 'Lista para recoger' },
   ];
 
-  const stepsHtml = steps.map((s, index) => {
+  const stepPieces = steps.map((s, index) => {
     const active = step >= index + 1;
-    const dotClass = active ? 'bg-green-500' : 'bg-gray-300';
+    const iconClass = active ? 'text-green-600' : 'text-gray-400';
     const textClass = active ? 'text-green-700' : 'text-gray-500';
+    const circleClass = active ? 'bg-green-100 border-green-200' : 'bg-gray-100 border-gray-200';
     return `
-      <div class="flex items-start gap-2">
-        <div class="flex items-center gap-2">
-          <div class="status-dot ${dotClass}"></div>
-          <i class="fa-solid ${s.icon} text-xs ${textClass}"></i>
+      <div class="flex flex-col items-center text-center gap-2">
+        <div class="w-11 h-11 rounded-full border ${circleClass} flex items-center justify-center">
+          <i class="fa-solid ${s.icon} ${iconClass}"></i>
         </div>
-        <div class="text-xs ${textClass}">${s.label}</div>
+        <div class="text-xs font-medium leading-tight ${textClass}">${s.label}</div>
       </div>
     `;
-  }).join('');
+  });
+  const stepsHtml = stepPieces
+    .map((piece, index) => {
+      if (index === stepPieces.length - 1) return piece;
+      const active = step >= index + 2;
+      const arrowClass = active ? 'text-green-400' : 'text-gray-300';
+      return `
+        ${piece}
+        <div class="flex items-center justify-center ${arrowClass} text-xs px-1">
+          <i class="fa-solid fa-chevron-right"></i>
+          <i class="fa-solid fa-chevron-right"></i>
+          <i class="fa-solid fa-chevron-right"></i>
+        </div>
+      `;
+    })
+    .join('');
+
+  const detailsId = `order-details-${order.id}`;
+  const mapsActionsHtml = (mapUrl || wazeUrl)
+    ? `
+      <div class="flex justify-center gap-3">
+        ${mapUrl ? `<a href="${mapUrl}" target="_blank" class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm hover:bg-slate-50 transition">
+          <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//google%20map.jpg" alt="Google Maps" class="rounded-full h-7">
+        </a>` : ''}
+        ${wazeUrl ? `<a href="${wazeUrl}" target="_blank" class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm hover:bg-slate-50 transition">
+          <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//waze.jpg" alt="Waze" class="rounded-full h-7">
+        </a>` : ''}
+      </div>
+    `
+    : '';
+  const finalStatusText = status === 'delivered' ? 'Orden Entregada' : `Orden ${statusLabel}`;
+  const compactStatusText = status === 'delivered' ? 'Orden Entregada' : `Último status: ${statusLabel}`;
+  const orderStatusHtml = isActiveOrder
+    ? `
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <div class="text-sm font-medium text-slate-700 text-center">Status de la orden</div>
+          <div class="flex items-center justify-center gap-2">${stepsHtml}</div>
+        </div>
+      `
+    : `
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+          <p class="text-sm font-medium text-emerald-700 text-center">${finalStatusText}</p>
+        </div>
+      `;
 
   card.innerHTML = `
-    <div class="flex items-start gap-3">
-      <div class="w-14 h-14 rounded-xl overflow-hidden border border-gray-100">${logoHtml}</div>
-      <div class="flex-1">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-semibold">${commerce?.nombre || 'Comercio'}</div>
-          <div class="text-[11px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">${statusLabel}</div>
-        </div>
-        <div class="text-xs text-gray-500">${created}</div>
-        ${order.order_type === 'mesa' && order.mesa ? `<div class="text-xs text-gray-500">Mesa ${order.mesa}</div>` : ''}
+    <button type="button" data-order-toggle aria-expanded="false" aria-controls="${detailsId}" class="w-full px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition">
+      <div class="w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 bg-white p-1 flex-shrink-0">${logoHtml}</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-base font-medium text-slate-800 truncate">${commerce?.nombre || 'Comercio'}</p>
+        <p class="text-sm font-medium text-slate-500 truncate">${created || 'Fecha no disponible'}</p>
+        <p class="text-sm font-medium text-slate-600 truncate">${compactStatusText}</p>
       </div>
-    </div>
-    <div class="flex items-center gap-3 text-xs text-gray-500">
-      ${commerce?.telefono ? `<a href="tel:${commerce.telefono}" class="inline-flex items-center gap-1 text-gray-600"><i class="fa-solid fa-phone"></i> ${commerce.telefono}</a>` : ''}
-      ${commerce?.direccion ? `<span class="inline-flex items-center gap-1"><i class="fa-solid fa-location-dot"></i>${commerce.direccion}</span>` : ''}
-    </div>
-    <div class="flex items-center gap-3">
-      ${mapUrl ? `<a href="${mapUrl}" target="_blank" class="inline-flex items-center gap-2 text-xs text-gray-600">
-        <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//google%20map.jpg" alt="Google Maps" class="h-8 w-12 object-contain">
-        Google Maps
-      </a>` : ''}
-      ${wazeUrl ? `<a href="${wazeUrl}" target="_blank" class="inline-flex items-center gap-2 text-xs text-gray-600">
-        <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/galeriacomercios//waze.jpg" alt="Waze" class="h-8 w-12 object-contain">
-        Waze
-      </a>` : ''}
-    </div>
-    <div class="space-y-2">${stepsHtml}</div>
-    <div class="border-t border-gray-100 pt-3 space-y-2">
-      ${itemsHtml || '<div class="text-xs text-gray-400">Sin detalles de items.</div>'}
-      <div class="flex items-center justify-between text-sm font-semibold pt-2">
-        <span>Total</span>
-        <span>${formatMoney(total)}</span>
+      <div class="text-right flex-shrink-0 pl-2">
+        <p class="text-xs font-medium text-slate-500">Total</p>
+        <p class="text-base font-semibold text-slate-900">${formatMoney(total)}</p>
+        <i data-order-chevron class="fa-solid fa-chevron-down text-xs text-slate-400 mt-1 transition-transform duration-200"></i>
+      </div>
+    </button>
+
+    <div id="${detailsId}" data-order-details class="hidden px-4 pb-4">
+      <div class="pt-4 border-t border-slate-100 space-y-4">
+        ${telefonoDisplay ? `
+          <div class="flex justify-center">
+            <a href="${telefonoHref}" class="inline-flex items-center justify-center gap-2 text-white text-base font-medium bg-red-600 rounded-full px-6 py-2 shadow hover:bg-red-700 transition">
+              <i class="fa-solid fa-phone text-base"></i> ${telefonoDisplay}
+            </a>
+          </div>` : ''}
+
+        <div class="flex flex-col items-center text-center gap-2">
+          ${order.order_type === 'mesa' && order.mesa ? `<div class="text-sm font-medium text-slate-500">Mesa ${order.mesa}</div>` : ''}
+          ${commerce?.direccion ? `<div class="inline-flex items-center justify-center gap-2 text-sky-700 font-medium text-sm leading-snug"><i class="fas fa-map-pin"></i> ${commerce.direccion}</div>` : ''}
+          ${mapsActionsHtml}
+        </div>
+
+        ${orderStatusHtml}
+
+        <div class="rounded-2xl border border-slate-200 p-3 space-y-3">
+          <div class="text-sm font-medium text-slate-700 text-center">Resumen del pedido</div>
+          ${itemsHtml || '<div class="text-sm font-medium text-gray-400 text-center">Sin detalles de items.</div>'}
+          <div class="flex items-center justify-between text-base font-medium pt-2 border-t border-slate-100">
+            <span class="text-slate-700">Total</span>
+            <span class="text-slate-900">${formatMoney(total)}</span>
+          </div>
+        </div>
       </div>
     </div>
   `;
+
+  const toggleBtn = card.querySelector('[data-order-toggle]');
+  const detailsEl = card.querySelector('[data-order-details]');
+  const chevronEl = card.querySelector('[data-order-chevron]');
+
+  toggleBtn?.addEventListener('click', () => {
+    if (!detailsEl) return;
+    const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+    toggleBtn.setAttribute('aria-expanded', String(!isExpanded));
+    detailsEl.classList.toggle('hidden', isExpanded);
+    chevronEl?.classList.toggle('rotate-180', !isExpanded);
+  });
 
   return card;
 }
@@ -271,8 +410,12 @@ async function loadOrders() {
 
   if (!orders.length) {
     const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id || '';
     const userEmail = user?.email || '';
-    if (userEmail) {
+    if (userId) {
+      orders = await fetchOrdersByUserId(userId);
+    }
+    if (!orders.length && userEmail) {
       orders = await fetchOrdersByEmail(userEmail);
     }
   }
@@ -289,11 +432,26 @@ async function loadOrders() {
     .select('id, nombre, direccion, telefono, latitud, longitud, logo')
     .in('id', comercioIds);
 
+  const comercioLogoMap = new Map();
+  if (comercioIds.length) {
+    const { data: logosData } = await supabase
+      .from('imagenesComercios')
+      .select('idComercio, imagen')
+      .in('idComercio', comercioIds)
+      .eq('logo', true);
+
+    (logosData || []).forEach((entry) => {
+      comercioLogoMap.set(entry.idComercio, resolveLogoUrl(entry.imagen));
+    });
+  }
+
   const comercioMap = new Map();
   (comercios || []).forEach((c) => {
     let logoUrl = null;
     if (c.logo) {
-      logoUrl = supabase.storage.from('galeriacomercios').getPublicUrl(c.logo).data?.publicUrl || null;
+      logoUrl = resolveLogoUrl(c.logo);
+    } else if (comercioLogoMap.has(c.id)) {
+      logoUrl = comercioLogoMap.get(c.id);
     }
     comercioMap.set(c.id, { ...c, logoUrl });
   });
@@ -355,20 +513,19 @@ async function loadOrders() {
 }
 
 function setActiveTab(tab) {
-  if (tabActivos) {
-    tabActivos.classList.toggle('bg-black', tab === 'activos');
-    tabActivos.classList.toggle('text-white', tab === 'activos');
-  }
-  if (tabPasados) {
-    tabPasados.classList.toggle('bg-black', tab === 'pasados');
-    tabPasados.classList.toggle('text-white', tab === 'pasados');
-  }
-  if (tabActivos) {
-    tabActivos.classList.toggle('text-gray-700', tab !== 'activos');
-  }
-  if (tabPasados) {
-    tabPasados.classList.toggle('text-gray-700', tab !== 'pasados');
-  }
+  const setTabState = (btn, isActive) => {
+    if (!btn) return;
+    btn.classList.toggle('bg-white', isActive);
+    btn.classList.toggle('shadow-sm', isActive);
+    btn.classList.toggle('border-slate-200', isActive);
+    btn.classList.toggle('text-slate-900', isActive);
+    btn.classList.toggle('bg-transparent', !isActive);
+    btn.classList.toggle('border-transparent', !isActive);
+    btn.classList.toggle('text-gray-500', !isActive);
+  };
+
+  setTabState(tabActivos, tab === 'activos');
+  setTabState(tabPasados, tab === 'pasados');
 }
 
 function getCurrentTab() {

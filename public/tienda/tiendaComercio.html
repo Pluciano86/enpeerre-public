@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tienda del Comercio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --tienda-color-btn: #fb8500;
+      --tienda-color-btn-text: #ffffff;
+      --tienda-color-btn-idle-bg: #ffffff;
+      --tienda-color-btn-idle-text: #374151;
+      --tienda-cat-border-width: 1px;
+      --tienda-cat-border-color: #fb8500;
+      --tienda-cat-border-radius: 9999px;
+      --tienda-color-price: #111827;
+      --tienda-color-title: #111827;
+      --tienda-color-text: #374151;
+      --tienda-background: #f8fafc;
+      --tienda-item-bg: #ffffff;
+      --tienda-font-button: 'Kanit', sans-serif;
+      --tienda-font-title: 'Kanit', sans-serif;
+      --tienda-font-price: 'Kanit', sans-serif;
+      --tienda-font-desc: 'Kanit', sans-serif;
+      --tienda-font-title-size: 16px;
+      --tienda-font-price-size: 16px;
+      --tienda-font-desc-size: 14px;
+      --tienda-text-align: left;
+    }
+
+    html,
+    body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: 'Kanit', sans-serif;
+      background: var(--tienda-background);
+      color: var(--tienda-color-text);
+    }
+
+    .tienda-fixed-background,
+    .tienda-fixed-background-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .tienda-fixed-background {
+      z-index: 0;
+      background-position: center center;
+      background-size: contain;
+      background-repeat: no-repeat;
+      transform: translateZ(0);
+    }
+
+    .tienda-fixed-background-overlay {
+      z-index: 0;
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .tienda-content-layer {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tienda-card {
+      background: var(--tienda-item-bg);
+      border: 1px solid #e5e7eb;
+    }
+
+    .tienda-categoria-btn {
+      border-style: solid;
+      border-width: var(--tienda-cat-border-width);
+      border-color: var(--tienda-cat-border-color);
+      color: var(--tienda-color-btn-idle-text);
+      background: var(--tienda-color-btn-idle-bg);
+      opacity: 0.9;
+      border-radius: var(--tienda-cat-border-radius);
+      font-family: var(--tienda-font-button);
+    }
+
+    .tienda-categoria-btn.is-active {
+      background: var(--tienda-color-btn);
+      color: var(--tienda-color-btn-text);
+      border-color: var(--tienda-color-btn);
+    }
+
+    .tienda-card-title {
+      font-family: var(--tienda-font-title);
+      text-align: var(--tienda-text-align);
+      font-size: var(--tienda-font-title-size);
+    }
+
+    .tienda-card-price {
+      font-family: var(--tienda-font-price);
+      text-align: var(--tienda-text-align);
+      font-size: var(--tienda-font-price-size);
+    }
+
+    .tienda-card-desc {
+      font-family: var(--tienda-font-desc);
+      text-align: var(--tienda-text-align);
+      font-size: var(--tienda-font-desc-size);
+    }
+
+    .tienda-card-desc {
+      color: var(--tienda-color-text);
+    }
+
+    .tienda-slider-dots {
+      pointer-events: none;
+    }
+
+    .tienda-slider-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.55);
+      transition: transform 0.18s ease, background-color 0.18s ease;
+    }
+
+    .tienda-slider-dot.is-active {
+      background: rgba(255, 255, 255, 0.95);
+      transform: scale(1.12);
+    }
+
+    .tienda-soldout-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: rgba(153, 27, 27, 0.9);
+      color: #fff;
+    }
+
+    .tienda-modal-backdrop {
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(1px);
+    }
+
+    .tienda-modal-panel {
+      max-height: min(90vh, 780px);
+    }
+
+    .tienda-modal-close-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(17, 24, 39, 0.78);
+      color: #ffffff;
+      font-size: 24px;
+      line-height: 1;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      transition: background-color 0.16s ease, transform 0.16s ease;
+    }
+
+    .tienda-modal-close-btn:hover {
+      background: rgba(17, 24, 39, 0.92);
+      transform: scale(1.03);
+    }
+
+    .tienda-image-viewer-backdrop {
+      background: rgba(0, 0, 0, 0.82);
+    }
+
+    .tienda-image-viewer-img {
+      max-width: min(96vw, 980px);
+      max-height: 90vh;
+      object-fit: contain;
+    }
+
+    .tienda-galeria-track {
+      scroll-snap-type: x mandatory;
+    }
+
+    .tienda-galeria-track > img {
+      scroll-snap-align: center;
+    }
+
+    .tienda-size-chip {
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #111827;
+      border-radius: 10px;
+      padding: 8px 10px;
+      min-width: 64px;
+      text-align: center;
+    }
+
+    .tienda-size-chip.is-disabled {
+      border-color: #e5e7eb;
+      background: #f8fafc;
+      color: #9ca3af;
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body class="pb-10">
+  <div id="tiendaFixedBackground" class="tienda-fixed-background hidden"></div>
+  <div id="tiendaFixedBackgroundOverlay" class="tienda-fixed-background-overlay hidden"></div>
+
+  <header class="tienda-content-layer relative w-full">
+    <a id="btnVolverPerfil" href="#" class="absolute top-3 left-3 z-20 inline-flex items-center justify-center w-10 h-10 rounded-full bg-black/55 text-white">
+      <i class="fas fa-chevron-left text-sm"></i>
+    </a>
+
+    <section id="heroBanner" class="relative w-full aspect-[16/9] max-h-64 overflow-hidden bg-gray-100">
+      <img id="heroBannerImg" src="" alt="Banner tienda" class="absolute inset-0 w-full h-full object-cover" />
+      <div id="heroOverlay" class="absolute inset-0 hidden"></div>
+    </section>
+  </header>
+
+  <main class="tienda-content-layer max-w-md mx-auto px-3 pt-4">
+    <p id="estadoTienda" class="text-sm text-gray-500 px-1">Cargando productos...</p>
+
+    <section id="storeGreetingWrap" class="hidden mt-3">
+      <p id="storeGreetingText" class="text-sm text-gray-600 px-1 whitespace-pre-line"></p>
+    </section>
+
+    <section id="categoriaSection" class="hidden mt-3">
+      <div id="categoriaButtons" class="flex gap-2 overflow-x-auto hide-scrollbar pb-1"></div>
+      <div class="mt-2 flex items-center justify-end">
+        <button id="toggleHideSoldOut" type="button" class="hidden tienda-categoria-btn px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition">
+          Ocultar agotados
+        </button>
+      </div>
+    </section>
+
+    <section id="productosSection" class="hidden mt-4">
+      <div id="productosGrid" class="grid grid-cols-2 gap-3"></div>
+    </section>
+  </main>
+
+  <div id="modalProducto" class="fixed inset-0 z-[100000] hidden">
+    <div id="modalProductoBackdrop" class="absolute inset-0 tienda-modal-backdrop"></div>
+
+    <div class="relative h-full w-full flex items-center justify-center p-3">
+      <article id="modalProductoPanel" class="tienda-modal-panel relative w-full max-w-md overflow-y-auto bg-white rounded-2xl shadow-2xl">
+        <button id="modalCerrar" type="button" class="tienda-modal-close-btn absolute top-3 right-3 z-10" aria-label="Cerrar modal">&times;</button>
+
+        <section class="p-4">
+          <div class="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+            <button id="modalImagenLink" type="button" class="block w-full cursor-zoom-in" aria-label="Ver imagen completa del producto">
+              <img id="modalImagenPrincipal" src="" alt="Producto" class="w-full h-64 object-cover" />
+            </button>
+
+            <button id="modalPrevImagen" class="absolute top-1/2 -translate-y-1/2 left-2 hidden w-9 h-9 rounded-full bg-black/50 text-white" aria-label="Anterior">
+              <i class="fas fa-chevron-left text-xs"></i>
+            </button>
+            <button id="modalNextImagen" class="absolute top-1/2 -translate-y-1/2 right-2 hidden w-9 h-9 rounded-full bg-black/50 text-white" aria-label="Siguiente">
+              <i class="fas fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+
+          <div id="modalThumbs" class="hidden mt-2 gap-2 overflow-x-auto hide-scrollbar"></div>
+
+          <h2 id="modalNombre" class="mt-4 text-xl font-semibold text-[var(--tienda-color-title)]"></h2>
+          <p id="modalPrecio" class="mt-1 text-lg font-semibold text-[var(--tienda-color-price)]"></p>
+          <p id="modalDescripcion" class="mt-3 text-sm text-gray-700 leading-relaxed whitespace-pre-line"></p>
+
+          <section id="modalOpcionesSection" class="hidden mt-4">
+            <h3 class="text-base font-semibold text-gray-800">Opciones</h3>
+            <div id="modalOpciones" class="mt-2 space-y-2"></div>
+          </section>
+
+          <section id="modalTallasSection" class="hidden mt-4">
+            <h3 class="text-base font-semibold text-gray-800">Tamaños disponibles</h3>
+            <div id="modalTallas" class="mt-2 flex flex-wrap gap-2"></div>
+          </section>
+
+          <section id="modalVariantesSection" class="hidden mt-4">
+            <h3 class="text-base font-semibold text-gray-800">Variantes</h3>
+            <div id="modalVariantes" class="mt-2 space-y-2"></div>
+          </section>
+
+          <a id="modalComprarBtn" href="#" target="_blank" rel="noopener noreferrer"
+             class="hidden mt-5 w-full inline-flex items-center justify-center rounded-xl bg-[#fb8500] text-white font-semibold py-3 px-4">
+            Comprar
+          </a>
+        </section>
+      </article>
+    </div>
+  </div>
+
+  <div id="modalImagenExpandida" class="fixed inset-0 z-[110000] hidden">
+    <div id="modalImagenExpandidaBackdrop" class="absolute inset-0 tienda-image-viewer-backdrop"></div>
+    <div id="modalImagenExpandidaWrap" class="relative w-full h-full flex items-center justify-center p-3">
+      <button id="modalImagenExpandidaCerrar" type="button" class="tienda-modal-close-btn absolute top-3 right-3 z-10" aria-label="Cerrar imagen">&times;</button>
+      <img id="modalImagenExpandidaSrc" src="" alt="Imagen de producto ampliada" class="tienda-image-viewer-img rounded-lg shadow-2xl" />
+    </div>
+  </div>
+
+  <script type="module" src="../shared/supabaseClient.js"></script>
+  <script type="module" src="./tiendaComercio.js"></script>
+  <script type="module" src="../js/footerViewportFix.js"></script>
+  <script src="../js/bloquearPantalla.js"></script>
+</body>
+</html>

@@ -1,66 +1,71 @@
 import { supabase } from '../shared/supabaseClient.js';
 import { t } from './i18n.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
+function toOrderValue(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return Number.MAX_SAFE_INTEGER;
+  return Math.floor(parsed);
+}
+
+function ordenarCategorias(categorias = []) {
+  return [...categorias].sort((a, b) => {
+    const orderDiff = toOrderValue(a?.orden) - toOrderValue(b?.orden);
+    if (orderDiff !== 0) return orderDiff;
+    return Number(a?.id || 0) - Number(b?.id || 0);
+  });
+}
+
+async function initCategoriasIndex() {
   const contenedor = document.getElementById('categoriasContainer');
   const toggleBtn = document.getElementById('toggleCategorias');
   const section = document.getElementById('categoriasSection');
+  if (!contenedor || !toggleBtn || !section) return;
+
   let todasCategorias = [];
   let mostrandoTodas = false;
+  let lastScrollY = window.scrollY || window.pageYOffset || 0;
 
-  // 🔹 Orden personalizado de categorías
-  const ordenPersonalizado = [
-    "Restaurantes",
-    "Coffee Shops",
-    "Jangueo",
-    "Antojitos Dulces",
-    "Food Trucks",
-    "Dispensarios",
-    "Panaderías",
-    "Playground",
-    "Bares"
-  ];
-
-  // 🔹 Cargar categorías desde Supabase
   async function cargarCategorias() {
-    const { data, error } = await supabase
-      .from('Categorias')
-      .select('id, imagen, color_hex, icono, nombre, nombre_es, nombre_en, nombre_zh, nombre_fr, nombre_pt, nombre_de, nombre_it, nombre_ko, nombre_ja')
-      .order('id', { ascending: true });
+    const queryAttempts = [
+      'id, orden, imagen, nombre, nombre_es, nombre_en, nombre_zh, nombre_fr, nombre_pt, nombre_de, nombre_it, nombre_ko, nombre_ja',
+      'id, imagen, nombre, nombre_es, nombre_en, nombre_pt',
+      'id, nombre',
+    ];
+
+    let data = null;
+    let error = null;
+
+    for (const columns of queryAttempts) {
+      const result = await supabase
+        .from('Categorias')
+        .select(columns)
+        .order('id', { ascending: true });
+      data = result.data;
+      error = result.error;
+      if (!error) break;
+    }
 
     if (error) {
       console.error('❌ Error cargando categorías:', error);
+      contenedor.innerHTML = '';
+      toggleBtn.classList.add('hidden');
       return;
     }
 
-    // 🧩 Aplicar el orden personalizado
-    todasCategorias = (data || []).sort((a, b) => {
-      // Ordenar siempre según el nombre en español para mantener el orden original,
-      // pero luego se renderiza usando el label del idioma activo.
-      const baseA = a.nombre_es || a.nombre;
-      const baseB = b.nombre_es || b.nombre;
-      const indexA = ordenPersonalizado.indexOf(baseA);
-      const indexB = ordenPersonalizado.indexOf(baseB);
-
-      // Si alguna categoría no está en la lista, se manda al final
-      if (indexA === -1 && indexB === -1) return 0;
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-
+    todasCategorias = ordenarCategorias(data || []);
     renderizarCategorias();
   }
 
-  // 🔹 Renderizar categorías
   function renderizarCategorias() {
     contenedor.innerHTML = '';
 
     const categoriasAMostrar = mostrandoTodas ? todasCategorias : todasCategorias.slice(0, 6);
-    const lang = (localStorage.getItem('lang') || document.documentElement.lang || 'es').toLowerCase();
+    const lang = (localStorage.getItem('lang') || document.documentElement.lang || 'es')
+      .toLowerCase()
+      .split('-')[0];
     const col = `nombre_${lang}`;
 
-    categoriasAMostrar.forEach(cat => {
+    categoriasAMostrar.forEach((cat) => {
       const card = document.createElement('a');
       card.href = `listadoComercios.html?idCategoria=${cat.id}`;
       card.className = 'flex flex-col items-center';
@@ -74,27 +79,45 @@ document.addEventListener('DOMContentLoaded', async () => {
       contenedor.appendChild(card);
     });
 
-    // 🔸 Cambiar texto y color del botón
     toggleBtn.textContent = mostrandoTodas ? t('home.verMenosCategorias') : t('home.verTodasCategorias');
     toggleBtn.className = 'text-gray-500 text-sm font-medium hover:text-gray-700 mt-2';
   }
 
-  // 🔹 Alternar entre ver todas / solo las principales
   toggleBtn.addEventListener('click', () => {
     mostrandoTodas = !mostrandoTodas;
     renderizarCategorias();
   });
 
-  // 🔹 Ocultar al pasar la sección con scroll
-  window.addEventListener('scroll', () => {
-    const rect = section.getBoundingClientRect();
-    const visible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-    if (!visible && mostrandoTodas) {
-      mostrandoTodas = false;
-      renderizarCategorias();
-    }
-  });
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!mostrandoTodas) {
+        lastScrollY = window.scrollY || window.pageYOffset || 0;
+        return;
+      }
+
+      const currentScrollY = window.scrollY || window.pageYOffset || 0;
+      const scrollingDown = currentScrollY > lastScrollY;
+      lastScrollY = currentScrollY;
+
+      if (!scrollingDown) return;
+
+      const rect = section.getBoundingClientRect();
+      const categoriaYaNoVisible = rect.bottom <= 0;
+      if (categoriaYaNoVisible) {
+        mostrandoTodas = false;
+        renderizarCategorias();
+      }
+    },
+    { passive: true }
+  );
 
   cargarCategorias();
   window.addEventListener('lang:changed', cargarCategorias);
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCategoriasIndex, { once: true });
+} else {
+  initCategoriasIndex();
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <link rel="icon" type="image/png" href="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chequea Lo de Hoy en Findixi...</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    body { font-family: 'Kanit', sans-serif; }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .lodehoy-media-frame {
+      max-height: min(60vh, 560px);
+    }
+    .lodehoy-media-frame--portrait {
+      height: min(60vh, 560px);
+      min-height: 220px;
+    }
+    .lodehoy-media-frame--landscape {
+      height: auto;
+      min-height: 0;
+    }
+    .lodehoy-media-content {
+      width: 100%;
+      max-height: min(60vh, 560px);
+      object-position: center center;
+      display: block;
+    }
+    .lodehoy-media-fit-cover { object-fit: cover; }
+    .lodehoy-media-fit-contain { object-fit: contain; }
+  </style>
+</head>
+<body class="bg-[#121212]">
+  <div class="min-h-screen flex justify-center bg-[#121212]">
+    <div class="w-full max-w-md bg-white text-gray-800 pb-24">
+      <div id="headerContainer"></div>
+      <script type="module" src="./js/header.js"></script>
+
+      <main class="px-4 py-6 space-y-4">
+        <section class="space-y-3">
+          <h1 class="text-2xl font-semibold text-gray-900 text-center">Chequea Lo de Hoy en Findixi...</h1>
+          <div class="rounded-2xl border border-gray-200 bg-white p-2">
+            <div class="grid grid-cols-3 gap-2">
+              <select id="filtroUbicacionLoDeHoy" class="w-full h-9 rounded-lg border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#EC7F25]/40">
+                <option value="placeholder:localidad">Localidad:</option>
+                <option value="mode:area">Por Área</option>
+                <option value="mode:municipio">Por Municipio</option>
+              </select>
+              <select id="filtroCategoriaLoDeHoy" class="w-full h-9 rounded-lg border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#EC7F25]/40">
+                <option value="">Categorías:</option>
+              </select>
+              <select id="filtroOrdenLoDeHoy" class="w-full h-9 rounded-lg border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#EC7F25]/40">
+                <option value="">Ordena por:</option>
+                <option value="recientes">Recientes</option>
+                <option value="antiguos">Antiguos</option>
+                <option value="cercania">Cercanía</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <p id="estadoCarga" class="text-sm text-gray-500 text-center">Cargando publicaciones...</p>
+          <p id="estadoVacio" class="hidden text-sm text-gray-500 text-center">Todavía no hay publicaciones para hoy.</p>
+          <div id="listaPublicaciones" class="space-y-4"></div>
+        </section>
+      </main>
+
+      <div id="footerContainer"></div>
+      <script type="module" src="./js/footer.js"></script>
+    </div>
+  </div>
+
+  <div id="mediaViewer" class="fixed inset-0 z-[10000] hidden bg-black/95">
+    <button
+      id="mediaViewerClose"
+      type="button"
+      class="absolute top-4 right-4 z-20 inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/15 text-white hover:bg-white/25"
+      aria-label="Cerrar visor"
+    >
+      <i class="fa-solid fa-xmark text-xl"></i>
+    </button>
+    <div id="mediaViewerContent" class="w-full h-full flex items-center justify-center p-3"></div>
+  </div>
+
+  <div id="shareSheet" class="fixed inset-0 z-[9999] bg-black/60 hidden items-end justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl p-4 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-base font-semibold text-gray-900">Compartir</p>
+        <button type="button" id="shareSheetCerrar" class="text-gray-500 hover:text-gray-700" aria-label="Cerrar compartir">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" data-share-channel="whatsapp" class="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium">
+          WhatsApp
+        </button>
+        <button type="button" data-share-channel="facebook" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">
+          Facebook
+        </button>
+        <button type="button" data-share-channel="sms" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium">
+          Texto (SMS)
+        </button>
+        <button type="button" data-share-channel="copy" class="px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-900 text-sm font-medium">
+          Copiar URL
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./js/lodehoy.js"></script>
+  <script src="./js/bloquearPantalla.js"></script>
+</body>
+</html>

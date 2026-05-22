@@ -6,8 +6,129 @@ import { cardComercioNoActivo } from './CardComercioNoActivo.js';
 import { fetchCercanosParaCoordenadas } from './buscarComerciosListado.js';
 import { mostrarPopupUbicacionDenegada, showPopupFavoritosVacios } from './popups.js';
 import { requireAuthSilent, showAuthModal, ACTION_MESSAGES } from './authGuard.js';
+import { showPopup as showPopupManager } from './popupManager.js';
 
 const FALLBACK_USER_IMG = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+const USER_MARKER_Z_INDEX = 10000;
+
+function getNavCopy() {
+  const lang = String(getLang() || 'es').toLowerCase().split('-')[0];
+  if (lang === 'es') {
+    return {
+      openGps: 'Abrir GPS',
+      title: 'Elegir navegación',
+      body: '¿Con qué app deseas abrir la ruta?',
+      google: 'Google Maps',
+      waze: 'Waze',
+      cancel: 'Cancelar',
+    };
+  }
+  return {
+    openGps: 'Open GPS',
+    title: 'Choose navigation',
+    body: 'Which app do you want to use for directions?',
+    google: 'Google Maps',
+    waze: 'Waze',
+    cancel: 'Cancel',
+  };
+}
+
+function openWithFallback(nativeUrl, webUrl) {
+  let hidden = false;
+  const markHidden = () => {
+    hidden = true;
+  };
+  const cleanup = () => {
+    document.removeEventListener('visibilitychange', onVisibility);
+    window.removeEventListener('pagehide', markHidden);
+  };
+  const onVisibility = () => {
+    if (document.hidden) {
+      hidden = true;
+    }
+  };
+
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('pagehide', markHidden);
+
+  try {
+    window.location.href = nativeUrl;
+  } catch (_) {
+    window.open(webUrl, '_blank', 'noopener');
+    cleanup();
+    return;
+  }
+
+  setTimeout(() => {
+    cleanup();
+    if (!hidden) {
+      window.open(webUrl, '_blank', 'noopener');
+    }
+  }, 900);
+}
+
+function showNavigationPicker({ lat, lon }) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+  const copy = getNavCopy();
+  const destination = `${lat},${lon}`;
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const googleNative = isIOS
+    ? `comgooglemaps://?daddr=${destination}&directionsmode=driving`
+    : `google.navigation:q=${destination}&mode=d`;
+  const googleWeb = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+  const wazeNative = `waze://?ll=${lat},${lon}&navigate=yes`;
+  const wazeWeb = `https://waze.com/ul?ll=${lat},${lon}&navigate=yes`;
+
+  showPopupManager({
+    title: copy.title,
+    message: copy.body,
+    buttons: [
+      {
+        text: copy.cancel,
+      },
+      {
+        text: copy.google,
+        primary: true,
+        onClick: () => openWithFallback(googleNative, googleWeb),
+      },
+      {
+        text: copy.waze,
+        primary: true,
+        onClick: () => openWithFallback(wazeNative, wazeWeb),
+      },
+    ],
+  });
+}
+
+function attachGpsAction(cardNode, comercio = {}) {
+  const lat = Number(comercio.latitud ?? comercio.lat ?? comercio.latitude);
+  const lon = Number(comercio.longitud ?? comercio.lon ?? comercio.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+  const hasGpsButton = cardNode.querySelector('[data-map-nav-action="true"]');
+  if (hasGpsButton) return;
+
+  const timeRow = Array.from(cardNode.querySelectorAll('div')).find((el) =>
+    el.querySelector('i.fa-car, i.fas.fa-car')
+  );
+  if (!timeRow || !timeRow.parentElement) return;
+
+  const copy = getNavCopy();
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.mapNavAction = 'true';
+  button.className =
+    'gps-open-btn mx-auto -mt-2 mb-3 inline-flex items-center justify-center gap-1 rounded-full border border-[#a8dcee] bg-[#edf9fd] px-3 py-1 text-sm font-medium text-[#3ea6c4] hover:bg-[#dff4fb] transition';
+  button.innerHTML = `<i class="fas fa-location-arrow text-[#3ea6c4]"></i> ${copy.openGps}`;
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showNavigationPicker({ lat, lon });
+  });
+
+  timeRow.insertAdjacentElement('afterend', button);
+}
 
 function crearIconoUsuario(src, headingDeg = null) {
   const safeSrc = typeof src === 'string' && src.trim() ? src.trim() : FALLBACK_USER_IMG;
@@ -135,12 +256,19 @@ const $filtroCategoria = document.getElementById('filtroCategoria');
 const $btnToggleFiltros = document.getElementById('btnToggleFiltros');
 const $panelFiltros = document.getElementById('panelFiltros');
 const $categoriaRow = document.getElementById('categoriaFiltrosRow');
+const $geoFallbackPanel = document.getElementById('geoFallbackPanel');
+const $geoFallbackStatus = document.getElementById('geoFallbackStatus');
+const $fallbackMunicipioSelect = document.getElementById('fallbackMunicipioSelect');
+const $btnFallbackApplyMunicipio = document.getElementById('btnFallbackApplyMunicipio');
+const $btnFallbackRetryGeo = document.getElementById('btnFallbackRetryGeo');
 
 let comerciosOriginales = [];
 let searchDebounceId = null;
 let favoritosUsuarioIds = new Set();
 let favoritosPromise = null;
 let selectedCategoryKeys = new Set();
+let municipiosFallback = [];
+let geoFallbackReady = false;
 
 
 
@@ -354,6 +482,149 @@ function togglePanelFiltros() {
   $btnToggleFiltros.setAttribute('aria-expanded', String(!estabaOculto));
   $btnToggleFiltros.classList.toggle('bg-gray-100', estabaOculto);
   $btnToggleFiltros.classList.toggle('bg-gray-200', !estabaOculto);
+}
+
+function stopGeoWatch() {
+  if (geoWatchId === null || !navigator.geolocation) return;
+  navigator.geolocation.clearWatch(geoWatchId);
+  geoWatchId = null;
+}
+
+function setGeoFallbackStatus(message = '', tone = 'info') {
+  if (!$geoFallbackStatus) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    $geoFallbackStatus.textContent = '';
+    $geoFallbackStatus.classList.add('hidden');
+    $geoFallbackStatus.classList.remove('text-amber-900', 'text-red-700', 'text-green-700');
+    return;
+  }
+
+  $geoFallbackStatus.textContent = text;
+  $geoFallbackStatus.classList.remove('hidden', 'text-amber-900', 'text-red-700', 'text-green-700');
+  if (tone === 'error') {
+    $geoFallbackStatus.classList.add('text-red-700');
+  } else if (tone === 'success') {
+    $geoFallbackStatus.classList.add('text-green-700');
+  } else {
+    $geoFallbackStatus.classList.add('text-amber-900');
+  }
+}
+
+function hideGeoFallbackPanel() {
+  if (!$geoFallbackPanel) return;
+  $geoFallbackPanel.classList.add('hidden');
+  setGeoFallbackStatus('');
+}
+
+function showGeoFallbackPanel(errorCode = null) {
+  if (!$geoFallbackPanel) return;
+  $geoFallbackPanel.classList.remove('hidden');
+
+  if (errorCode === 1) {
+    setGeoFallbackStatus(t('cerca.geoFallbackPermissionDenied'), 'error');
+  } else if (errorCode === 3) {
+    setGeoFallbackStatus(t('cerca.geoFallbackTimeout'), 'error');
+  } else if (errorCode === 2) {
+    setGeoFallbackStatus(t('cerca.geoFallbackPositionUnavailable'), 'error');
+  } else {
+    setGeoFallbackStatus(t('cerca.geoFallbackUnknownError'), 'error');
+  }
+}
+
+async function cargarMunicipiosFallback({ force = false } = {}) {
+  if (!$fallbackMunicipioSelect) return;
+  if (geoFallbackReady && !force) return;
+  const selectedBefore = String($fallbackMunicipioSelect.value || '').trim();
+
+  try {
+    const { data, error } = await supabase
+      .from('Municipios')
+      .select('id, nombre, latitud, longitud')
+      .order('nombre');
+
+    if (error) throw error;
+
+    municipiosFallback = (Array.isArray(data) ? data : []).filter((item) => {
+      const lat = Number(item?.latitud);
+      const lon = Number(item?.longitud);
+      return typeof item?.nombre === 'string' && item.nombre.trim() && Number.isFinite(lat) && Number.isFinite(lon);
+    });
+
+    $fallbackMunicipioSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = t('cerca.geoFallbackMunicipioPlaceholder');
+    $fallbackMunicipioSelect.appendChild(placeholder);
+
+    municipiosFallback.forEach((municipio) => {
+      const option = document.createElement('option');
+      option.value = municipio.nombre;
+      option.textContent = municipio.nombre;
+      $fallbackMunicipioSelect.appendChild(option);
+    });
+
+    if (selectedBefore) {
+      const hasSelected = municipiosFallback.some(
+        (item) => String(item?.nombre || '').trim() === selectedBefore
+      );
+      if (hasSelected) {
+        $fallbackMunicipioSelect.value = selectedBefore;
+      }
+    }
+
+    geoFallbackReady = true;
+  } catch (err) {
+    console.error('⚠️ No se pudo cargar la lista de municipios para fallback:', err?.message || err);
+    setGeoFallbackStatus(t('cerca.geoFallbackMunicipiosError'), 'error');
+  }
+}
+
+function getCoordsFromMunicipioNombre(nombre = '') {
+  const municipio = municipiosFallback.find(
+    (item) => String(item?.nombre || '').trim().toLowerCase() === String(nombre || '').trim().toLowerCase()
+  );
+  if (!municipio) return null;
+  const lat = Number(municipio.latitud);
+  const lon = Number(municipio.longitud);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon, nombre: municipio.nombre };
+}
+
+async function applyFallbackMunicipio() {
+  const municipioNombre = String($fallbackMunicipioSelect?.value || '').trim();
+  if (!municipioNombre) {
+    setGeoFallbackStatus(t('cerca.geoFallbackSelectMunicipioRequired'), 'error');
+    return;
+  }
+
+  const coords = getCoordsFromMunicipioNombre(municipioNombre);
+  if (!coords) {
+    setGeoFallbackStatus(t('cerca.geoFallbackMunicipioNoCoords'), 'error');
+    return;
+  }
+
+  stopGeoWatch();
+  siguiendoUsuario = false;
+  map._userMovedManually = true;
+  map._firstFix = false;
+  map._comerciosCargados = false;
+
+  if (userMarker) {
+    userMarker.remove();
+    userMarker = null;
+  }
+  if (userAccuracyCircle) {
+    userAccuracyCircle.remove();
+    userAccuracyCircle = null;
+  }
+
+  userLat = coords.lat;
+  userLon = coords.lon;
+  map.setView([coords.lat, coords.lon], 12, { animate: true });
+  await loadNearby();
+
+  setGeoFallbackStatus(t('cerca.geoFallbackLoadedMunicipio', { municipio: coords.nombre }), 'success');
 }
 
 async function cargarCategoriasDropdown() {
@@ -699,7 +970,6 @@ function initMap() {
   // ✅ Capa para los marcadores
   markersLayer = L.layerGroup().addTo(map);
 
-  console.log("✅ Mapa inicializado correctamente (zoom máximo 22)");
 }
 
 function updateRadioLabel() {
@@ -777,6 +1047,7 @@ async function renderMarkers(comercios = []) {
       tiempoVehiculo: comercio.tiempoVehiculo || comercio.tiempoTexto,
       pueblo: comercio.municipio || comercio.pueblo || '',
     });
+    attachGpsAction(cardNode, comercio);
 
     cardNode.querySelector('div[class*="text-[#3ea6c4]"]')?.remove();
     cardNode.querySelector('.municipio-info')?.remove();
@@ -865,7 +1136,13 @@ async function loadNearby() {
 }
 
 async function locateUser() {
-  if (!navigator.geolocation || !map) return;
+  if (!map) return;
+  if (!navigator.geolocation) {
+    showGeoFallbackPanel();
+    setGeoFallbackStatus(t('cerca.geoFallbackNoSupport'), 'error');
+    cargarMunicipiosFallback();
+    return;
+  }
   if (geoWatchId !== null) {
     map._userMovedManually = false;
     siguiendoUsuario = true;
@@ -913,6 +1190,7 @@ async function locateUser() {
       userLat = pos.coords.latitude;
       userLon = pos.coords.longitude;
       if (!map || !Number.isFinite(userLat) || !Number.isFinite(userLon)) return;
+      hideGeoFallbackPanel();
 
       // velocidad → mph
       const speed = pos.coords.speed || 0; // m/s
@@ -932,6 +1210,7 @@ async function locateUser() {
       // crea/mueve el pin del usuario
       if (userMarker) {
         userMarker.setLatLng([userLat, userLon]);
+        userMarker.setZIndexOffset(USER_MARKER_Z_INDEX);
         if (Number.isFinite(userHeadingDeg)) {
           if (lastHeadingApplied === null || Math.abs(userHeadingDeg - lastHeadingApplied) >= 5) {
             userMarker.setIcon(crearIconoUsuario(userIconSrc, userHeadingDeg));
@@ -940,6 +1219,7 @@ async function locateUser() {
         }
       } else {
         userMarker = L.marker([userLat, userLon], { icon: crearIconoUsuario(userIconSrc, userHeadingDeg) }).addTo(map);
+        userMarker.setZIndexOffset(USER_MARKER_Z_INDEX);
         if (Number.isFinite(userHeadingDeg)) {
           lastHeadingApplied = userHeadingDeg;
         }
@@ -994,9 +1274,13 @@ async function locateUser() {
 
   const handleError = (err) => {
     console.warn('⚠️ Error en seguimiento de ubicación:', err.message);
+    const errorCode = Number(err?.code);
     if (err && err.code === err.PERMISSION_DENIED) {
       mostrarPopupUbicacionDenegada();
+      stopGeoWatch();
     }
+    showGeoFallbackPanel(errorCode);
+    cargarMunicipiosFallback();
     toggleLoader(false);
   };
 
@@ -1044,14 +1328,24 @@ async function locateUser() {
   initMap();
   updateRadioLabel();
   cargarCategoriasDropdown();
+  cargarMunicipiosFallback();
 
   $radio?.addEventListener('input', updateRadioLabel);
   $radio?.addEventListener('change', () => loadNearby());
   $btnCentrarme?.addEventListener('click', locateUser);
   $btnRecargar?.addEventListener('click', () => loadNearby());
+  $btnFallbackApplyMunicipio?.addEventListener('click', () => applyFallbackMunicipio());
+  $btnFallbackRetryGeo?.addEventListener('click', () => {
+    stopGeoWatch();
+    setGeoFallbackStatus(t('cerca.geoFallbackRetrying'), 'info');
+    locateUser();
+  });
   $btnToggleFiltros?.addEventListener('click', togglePanelFiltros);
   $filtroCategoria?.addEventListener('change', () => loadNearby());
-  window.addEventListener('lang:changed', () => cargarCategoriasDropdown());
+  window.addEventListener('lang:changed', () => {
+    cargarCategoriasDropdown();
+    cargarMunicipiosFallback({ force: true });
+  });
 
   if ($search) {
     $search.addEventListener('input', () => {

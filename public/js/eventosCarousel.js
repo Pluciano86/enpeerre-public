@@ -1,6 +1,11 @@
 import { supabase } from "../shared/supabaseClient.js";
-import { abrirModal } from "./modalEventos.js";
 import { t } from "./i18n.js";
+import { toHorizontalEventImage } from "../shared/eventoImage.js";
+import {
+  compareByNearestUpcomingDate,
+  getLatestISODate,
+  getNearestUpcomingISODate,
+} from "../shared/utils.js";
 
 const normalizarEventos = (lista = [], municipioNombreById = new Map()) => {
   const hoyISO = new Date().toISOString().slice(0, 10);
@@ -35,7 +40,9 @@ const normalizarEventos = (lista = [], municipioNombreById = new Map()) => {
           : (municipioNombreById.get(municipioIds[0]) || "");
 
       const eventoFechas = sedes.flatMap((sede) => sede.fechas || []).sort((a, b) => a.fecha.localeCompare(b.fecha));
-      const ultimaFecha = eventoFechas.length ? eventoFechas[eventoFechas.length - 1].fecha : null;
+      const fechasISO = eventoFechas.map((item) => item.fecha);
+      const ultimaFecha = getLatestISODate(fechasISO);
+      const proximaFecha = getNearestUpcomingISODate(fechasISO, hoyISO);
 
       return {
         ...evento,
@@ -44,10 +51,18 @@ const normalizarEventos = (lista = [], municipioNombreById = new Map()) => {
         municipioNombre,
         eventoFechas,
         ultimaFecha,
+        proximaFecha,
         boletos_por_localidad: Boolean(evento.boletos_por_localidad)
       };
     })
-    .filter((evento) => !evento.ultimaFecha || evento.ultimaFecha >= hoyISO);
+    .filter((evento) => !evento.ultimaFecha || evento.ultimaFecha >= hoyISO)
+    .sort((a, b) => {
+      const fechasA = a.eventoFechas?.map((item) => item.fecha) || [];
+      const fechasB = b.eventoFechas?.map((item) => item.fecha) || [];
+      const result = compareByNearestUpcomingDate(fechasA, fechasB, hoyISO);
+      if (result !== 0) return result;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
 };
 
 /**
@@ -58,7 +73,7 @@ export async function renderEventosCarousel(containerId, filtros = {}) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const { idArea, idMunicipio } = filtros;
+  const { idArea, idMunicipio, layout } = filtros;
   let municipiosIds = [];
   let nombreMunicipio = "";
   let nombreArea = "";
@@ -216,14 +231,17 @@ export async function renderEventosCarousel(containerId, filtros = {}) {
         <div class="swiper-wrapper">
           ${eventos
             .map(
-              (evento) => `
+              (evento) => {
+                const urlImagen = toHorizontalEventImage(evento.imagen) || "https://placehold.co/1280x720?text=Sin+Imagen";
+                return `
             <div class="swiper-slide cursor-pointer" data-id="${evento.id}">
-              <div class="w-full aspect-[3/4] overflow-hidden rounded-lg bg-gray-100 shadow">
-                <img src="${evento.imagen || "https://placehold.co/400x500?text=Sin+Imagen"}"
+              <div class="w-full aspect-[16/9] overflow-hidden rounded-lg bg-gray-200 relative shadow">
+                <img src="${urlImagen}"
                      alt="${evento.nombre || "Evento"}"
                      class="w-full h-full object-cover" />
               </div>
-            </div>`
+            </div>`;
+              }
             )
             .join("")}
         </div>
@@ -231,24 +249,34 @@ export async function renderEventosCarousel(containerId, filtros = {}) {
     `;
 
     // 🔹 Inicializar Swiper
-    const pathname = window.location.pathname || "";
-    const esListadoArea = pathname.includes("listadoArea.html");
-    const esIndex = pathname.endsWith("/") || pathname.includes("index.html");
+    const pathname = (window.location.pathname || "").toLowerCase();
+    const forcedLayout = String(layout || "").toLowerCase();
+    const esListadoArea = pathname.includes("listadoarea");
+    const esIndex = pathname.endsWith("/") || pathname.includes("index");
+    const usarLayoutIndex = forcedLayout === "index" || esIndex || esListadoArea;
+    const totalSlides = eventos.length;
+    const canLoop = totalSlides > 1;
     new Swiper(container.querySelector(".eventosSwiper"), {
-      loop: true,
-      autoplay: { delay: 2500, disableOnInteraction: false },
+      loop: canLoop,
+      loopedSlides: canLoop ? totalSlides : 0,
+      loopAdditionalSlides: canLoop ? totalSlides : 0,
+      autoplay: canLoop
+        ? { delay: 2500, disableOnInteraction: false, waitForTransition: false }
+        : false,
       speed: 900,
-      slidesPerView: (esIndex || esListadoArea) ? 2 : 1.2,
-      spaceBetween: (esIndex || esListadoArea) ? 10 : 8, // pequeño espacio entre tarjetas
+      slidesPerView: usarLayoutIndex ? 2 : 1.2,
+      slidesPerGroup: 1,
+      spaceBetween: usarLayoutIndex ? 10 : 8, // pequeño espacio entre tarjetas
       centeredSlides: false,
+      watchSlidesProgress: true,
     });
 
-    // 🔹 Click → abrir modal
+    // 🔹 Click → página de evento
     container.querySelectorAll(".swiper-slide").forEach((slide) => {
       slide.addEventListener("click", () => {
         const id = slide.getAttribute("data-id");
-        const evento = eventos.find((e) => e.id == id);
-        if (evento) abrirModal(evento);
+        if (!id) return;
+        window.location.href = `perfilEvento.html?id=${encodeURIComponent(id)}`;
       });
     });
 
@@ -260,7 +288,7 @@ export async function renderEventosCarousel(containerId, filtros = {}) {
     btnVerMas.href = "listadoEventos.html";
     btnVerMas.textContent = t('area.verMasEventos');
     btnVerMas.className =
-      "bg-[#023047] hover:bg-[#023047] text-white font-light py-2 px-8 rounded-lg shadow transition";
+      "inline-flex items-center justify-center bg-[#023047] hover:bg-[#012737] text-white text-sm font-light py-1.5 px-6 rounded-lg shadow transition";
 
     btnContainer.appendChild(btnVerMas);
     container.appendChild(btnContainer);

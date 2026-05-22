@@ -6,7 +6,21 @@ const isLocal = window.location.hostname === '127.0.0.1' || window.location.host
 const basePath = isLocal ? '/public' : '';
 const origin = window.location.origin;
 const resetRedirectTo = `${origin}${basePath}/nuevaPassword.html`;
-const socialRedirectUrl = `${origin}${basePath}/usuarios/cuentaUsuario.html`;
+const urlParams = new URLSearchParams(window.location.search);
+const rawRedirect = urlParams.get('redirect') || '';
+
+function buildRedirectPath(raw) {
+  if (!raw) return `${basePath}/usuarios/cuentaUsuario.html`;
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('//')) {
+    return `${basePath}/usuarios/cuentaUsuario.html`;
+  }
+  if (raw.startsWith('/')) return raw;
+  const cleaned = raw.replace(/^\.?\//, '');
+  return `${basePath}/${cleaned}`;
+}
+
+const redirectPath = buildRedirectPath(rawRedirect);
+const socialRedirectUrl = `${origin}${redirectPath}`;
 
 window.__supabaseResetRedirect = resetRedirectTo;
 
@@ -47,6 +61,74 @@ async function actualizarPerfilUsuario(usuarioId, data) {
   return false;
 }
 
+async function callUserPhoneOtpEndpoint(paths, payload, accessToken) {
+  const endpointList = Array.isArray(paths) ? paths : [paths];
+  let lastError = null;
+
+  for (const endpoint of endpointList) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(payload || {}),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) return data;
+
+      const error = new Error(data?.error || `OTP endpoint error ${response.status}`);
+      error.status = response.status;
+      error.payload = data;
+      lastError = error;
+
+      if (response.status !== 404) throw error;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('No se pudo contactar endpoint OTP de teléfono.');
+}
+
+async function verifyUserPhoneWithPrompt({ phoneRaw, accessToken }) {
+  const phone = String(phoneRaw || '').trim();
+  if (!phone || !accessToken) return { ok: false, skipped: true };
+
+  const sendResponse = await callUserPhoneOtpEndpoint(
+    ['/.netlify/functions/send_user_phone_otp', '/.netlify/functions/user-phone-otp-send'],
+    {
+      phone,
+      channel_preference: 'auto',
+    },
+    accessToken
+  );
+
+  const challengeId = sendResponse?.challenge_id;
+  if (!challengeId) {
+    throw new Error('No se recibió challenge_id en el envío OTP.');
+  }
+
+  const code = window.prompt('Ingresa el código que recibiste por WhatsApp/SMS para verificar tu teléfono:');
+  const normalized = String(code || '').replace(/\D/g, '').slice(0, 6);
+  if (normalized.length !== 6) {
+    return { ok: false, cancelled: true };
+  }
+
+  await callUserPhoneOtpEndpoint(
+    ['/.netlify/functions/verify_user_phone_otp', '/.netlify/functions/user-phone-otp-verify'],
+    {
+      challenge_id: challengeId,
+      code: normalized,
+    },
+    accessToken
+  );
+
+  return { ok: true };
+}
+
 async function init() {
   const btnMostrarLogin = document.getElementById('btnMostrarLogin');
   const formLogin = document.getElementById('formLogin');
@@ -60,22 +142,11 @@ async function init() {
   const linkMostrarLogin = document.getElementById('linkMostrarLogin');
   const btnGoogleTop = document.getElementById('btnGoogleTop');
 
-  const fotoInput = document.getElementById('fotoRegistro');
-  const avatarPreview = document.getElementById('avatarPreview');
-  const avatarPlaceholder = document.getElementById('avatarPlaceholder');
-  const avatarText = document.getElementById('avatarText');
-  const previewFoto = document.getElementById('previewFoto');
   const consentimientoSms = document.getElementById('consentimientoSms');
   const telefonoInput = document.getElementById('telefonoRegistro');
-  const telefonoLabel = document.getElementById('telefonoLabel');
   const telefonoError = document.getElementById('telefonoError');
   const passwordRegistroInput = document.getElementById('passwordRegistro');
   const passwordRegistroMensaje = document.getElementById('passwordRegistroMensaje');
-  const tipoCuentaButtons = document.querySelectorAll('.tipo-cuenta-btn');
-  const tipoCuentaInput = document.getElementById('tipoCuentaSeleccion');
-  const membresiaUpInfo = document.getElementById('membresiaUpInfo');
-  const avatarSection = document.getElementById('avatarSection');
-  const tipoCuentaMensaje = document.getElementById('tipoCuentaMensaje');
   const terminosWrapper = document.getElementById('terminosWrapper');
   const terminosCheckbox = document.getElementById('terminosCheckbox');
   const terminosError = document.getElementById('terminosError');
@@ -90,7 +161,7 @@ async function init() {
   // Redirigir si ya hay sesión activa
   const { data: sessionData } = await supabase.auth.getSession();
   if (sessionData?.session) {
-    window.location.href = `${basePath}/usuarios/cuentaUsuario.html`;
+    window.location.href = redirectPath;
     return;
   }
 
@@ -157,11 +228,6 @@ async function init() {
       if (error) console.error(error);
     });
   });
-
-  // 🔹 Avatar Picker
-  const triggerAvatarPicker = () => fotoInput?.click();
-  avatarPreview?.addEventListener('click', triggerAvatarPicker);
-  avatarText?.addEventListener('click', triggerAvatarPicker);
 
   const setTelefonoErrorState = (visible) => {
     if (!telefonoInput) return;
@@ -230,101 +296,7 @@ async function init() {
   cancelarModalTerminos?.addEventListener('click', cerrarModal);
   cerrarModalTerminos?.addEventListener('click', cerrarModal);
 
-  const actualizarUIporTipoCuenta = (tipo) => {
-    if (!tipoCuentaInput) return;
-    const tipoNormalizado = tipo === 'up' ? 'up' : 'regular';
-    tipoCuentaInput.value = tipoNormalizado;
-    const esMembresiaUp = tipoNormalizado === 'up';
-
-    tipoCuentaButtons.forEach((btn) => {
-      const activo = btn.dataset.tipo === tipoNormalizado;
-      const esBtnUp = btn.dataset.tipo === 'up';
-      btn.classList.toggle('bg-white/10', activo && !esBtnUp);
-      btn.classList.toggle('border-celeste/60', activo);
-      btn.classList.toggle('shadow-[0_15px_40px_rgba(35,180,233,0.25)]', activo && esMembresiaUp);
-      btn.classList.toggle('ring-2', activo);
-      btn.classList.toggle('ring-celeste', activo);
-      if (esBtnUp) {
-        btn.classList.toggle('membresia-up-btn-active', activo);
-      }
-    });
-
-    if (tipoCuentaMensaje) {
-      tipoCuentaMensaje.textContent =
-        tipoNormalizado === 'up'
-          ? t('login.registeringUp')
-          : t('login.registeringRegular');
-    }
-
-    if (telefonoInput) {
-      telefonoInput.required = esMembresiaUp;
-      if (telefonoLabel) {
-        telefonoLabel.textContent = esMembresiaUp ? t('login.phoneLabel') : t('login.phoneOptionalLabel');
-      }
-      if (!esMembresiaUp) {
-        setTelefonoErrorState(false);
-      }
-    }
-
-    if (membresiaUpInfo) {
-      if (esMembresiaUp) {
-        membresiaUpInfo.classList.remove('hidden');
-        membresiaUpInfo.classList.add('fade-up-enter');
-      } else {
-        membresiaUpInfo.classList.add('hidden');
-        membresiaUpInfo.classList.remove('fade-up-enter');
-      }
-    }
-
-    if (avatarSection) {
-      if (esMembresiaUp) {
-        avatarSection.classList.remove('hidden');
-        avatarSection.classList.add('fade-up-enter');
-      } else {
-        avatarSection.classList.add('hidden');
-        avatarSection.classList.remove('fade-up-enter');
-      }
-    }
-
-    if (!esMembresiaUp && fotoInput) {
-      fotoInput.value = '';
-      previewFoto?.classList.add('hidden');
-      avatarPlaceholder?.classList.remove('hidden');
-    }
-
-    if (terminosWrapper) {
-      if (esMembresiaUp) {
-        terminosWrapper.classList.remove('hidden');
-      } else {
-        terminosWrapper.classList.add('hidden');
-        resetTerminosAceptados();
-      }
-    }
-  };
-
-  if (tipoCuentaButtons.length) {
-    actualizarUIporTipoCuenta(tipoCuentaInput?.value || 'regular');
-    tipoCuentaButtons.forEach((btn) => {
-      btn.addEventListener('click', () => actualizarUIporTipoCuenta(btn.dataset.tipo));
-    });
-  }
-
-  // 🔹 Preview de imagen
-  fotoInput?.addEventListener('change', () => {
-    const file = fotoInput.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        previewFoto.src = reader.result;
-        previewFoto.classList.remove('hidden');
-        avatarPlaceholder?.classList.add('hidden');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      previewFoto?.classList.add('hidden');
-      avatarPlaceholder?.classList.remove('hidden');
-    }
-  });
+  resetTerminosAceptados();
 
   // 🔹 Login
   formLogin?.addEventListener('submit', async (e) => {
@@ -340,7 +312,7 @@ async function init() {
         errorMensaje.textContent = t('login.loginErrorInvalid');
         errorMensaje.classList.remove('hidden');
       } else {
-        window.location.href = `${basePath}/usuarios/cuentaUsuario.html`;
+        window.location.href = redirectPath;
       }
     } catch (err) {
       console.error("Error al iniciar sesión:", err);
@@ -393,12 +365,9 @@ async function init() {
     const email = document.getElementById('emailRegistro').value.trim();
     const password = document.getElementById('passwordRegistro').value;
     const confirmar = document.getElementById('confirmarPassword').value;
-    const foto = document.getElementById('fotoRegistro').files[0];
     const telefonoDigits = telefonoInput?.dataset.digits || telefonoInput?.value.replace(/\D/g, '') || '';
     const municipio = document.getElementById('municipio').value;
     const notificarText = consentimientoSms?.checked ?? true;
-    const tipoCuentaSeleccion = tipoCuentaInput?.value || 'regular';
-    const esMembresiaUp = tipoCuentaSeleccion === 'up';
 
     if (password.length < 6) {
       passwordRegistroMensaje?.classList.remove('hidden');
@@ -415,16 +384,6 @@ async function init() {
       return;
     }
 
-    if (esMembresiaUp && !telefonoDigits) {
-      errorRegistro.textContent = t('login.phoneRequiredError');
-      errorRegistro.classList.remove('hidden');
-      setTelefonoErrorState(true);
-      telefonoInput?.focus();
-      return;
-    } else {
-      setTelefonoErrorState(false);
-    }
-
     if (telefonoDigits && telefonoDigits.length !== 10) {
       errorRegistro.textContent = t('login.registerErrorPhoneInvalid');
       errorRegistro.classList.remove('hidden');
@@ -433,21 +392,14 @@ async function init() {
     }
     setTelefonoErrorState(false);
 
-    if (esMembresiaUp && !terminosCheckbox?.checked) {
-      errorRegistro.textContent = t('login.termsError');
+    if (!terminosCheckbox?.checked) {
+      errorRegistro.textContent = 'Debes aceptar los Términos y condiciones y la Política de privacidad de Findixi.';
       errorRegistro.classList.remove('hidden');
       setTerminosErrorState(true);
       terminosWrapper?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     } else {
       setTerminosErrorState(false);
-    }
-
-    if (esMembresiaUp && !foto) {
-      errorRegistro.textContent = t('login.registerErrorPhotoRequired');
-      errorRegistro.classList.remove('hidden');
-      avatarSection?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
     }
 
     try {
@@ -466,37 +418,13 @@ async function init() {
       }
 
       const userId = signup.user.id;
-      let imagen = '';
-
-      // 📸 Subir imagen si existe
-      if (foto) {
-        const extension = foto.name.split('.').pop();
-        const nombreArchivo = `usuarios/${userId}_${Date.now()}.${extension}`;
-
-        const { error: errorUpload } = await supabase.storage
-          .from('imagenesusuarios')
-          .upload(nombreArchivo, foto, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType: foto.type
-          });
-
-        if (!errorUpload) {
-          const { data } = supabase.storage
-            .from('imagenesusuarios')
-            .getPublicUrl(nombreArchivo);
-          imagen = data.publicUrl;
-        }
-      }
 
       const payload = {
         nombre,
         apellido,
         telefono: telefonoDigits || null,
         municipio,
-        imagen,
-        notificartext: notificarText,
-        membresiaUp: esMembresiaUp
+        notificartext: notificarText
       };
       const actualizado = await actualizarPerfilUsuario(userId, payload);
 
@@ -506,11 +434,23 @@ async function init() {
         return;
       }
 
-      const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
       if (!loginError) {
+        try {
+          if (telefonoDigits) {
+            const accessToken = loginData?.session?.access_token || '';
+            await verifyUserPhoneWithPrompt({
+              phoneRaw: telefonoDigits,
+              accessToken,
+            });
+          }
+        } catch (otpError) {
+          console.warn('No se pudo completar verificación OTP de teléfono en registro:', otpError);
+        }
+
         ocultarLoader();
         setTimeout(() => {
-          window.location.href = `${basePath}/usuarios/cuentaUsuario.html`;
+          window.location.href = redirectPath;
         }, 200);
       } else {
         ocultarLoader();

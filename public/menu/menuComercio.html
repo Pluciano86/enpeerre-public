@@ -47,6 +47,13 @@
   </style>
 </head>
 <body class="text-gray-800 pb-20">
+  <div id="globalLoader" class="hidden fixed inset-0 z-[90] items-center justify-center bg-black/45 opacity-0 transition-opacity duration-200">
+    <div class="rounded-xl bg-white px-5 py-4 shadow-xl flex items-center gap-3">
+      <span class="inline-block w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></span>
+      <span id="globalLoaderText" class="text-sm font-medium text-gray-700">Traduciendo menu...</span>
+    </div>
+  </div>
+
   <header>
     <div id="heroPortada" class="relative w-full aspect-[16/9] max-h-64 sm:max-h-72 lg:max-h-80 overflow-hidden">
       <img id="heroImg" src="" alt="Portada" class="absolute inset-0 w-full h-full object-cover" />
@@ -54,15 +61,15 @@
     </div>
   </header>
 
-  <!-- Language switcher (same as header, but placed under banner) -->
-  <div id="langSwitcherMenu"></div>
-
   <section class="text-center py-4 px-4">
     <div class="space-y-1">
       <p id="heroNombre" class="pb-1 font-bold">Nombre Comercio</p>
       <p id="heroMenuWord" class="text-lg font-semibold">Menú</p>
     </div>
-    <div class="mt-3">
+    <div class="mt-0 flex justify-end">
+      <div id="langSwitcherMenu"></div>
+    </div>
+    <div class="mt-0">
       <a id="btnMenuPdf" href="#" target="_blank" rel="noopener noreferrer" class="hidden inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition text-sm">
         <i class="fas fa-file-pdf"></i> Ver menú PDF
       </a>
@@ -122,6 +129,7 @@
   <!-- Scripts -->
   <script type="module" src="../shared/supabaseClient.js"></script>
   <script type="module" src="./menuComercio.js"></script>
+  <script type="module" src="../js/dailyBetaPopup.js"></script>
   <script type="module" src="../js/footerViewportFix.js"></script>
   <script src="../js/bloquearPantalla.js"></script>
 </body>

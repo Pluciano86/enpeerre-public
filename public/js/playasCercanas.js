@@ -111,7 +111,7 @@ export async function mostrarPlayasCercanas(comercio) {
 
   // 🔹 Estructura Swiper
   contenedor.innerHTML = `
-    <div class="swiper playasSwiper w-full overflow-hidden px-1">
+    <div class="swiper playasSwiper w-full overflow-hidden px-1 py-[6px]">
       <div class="swiper-wrapper"></div>
     </div>
   `;
@@ -122,7 +122,7 @@ export async function mostrarPlayasCercanas(comercio) {
       const imagenURL =
       playa.imagen && playa.imagen.trim() !== ''
         ? playa.imagen.trim()
-        : "https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/enpr/imgPlayaNoDisponible.jpg";
+        : "https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/imgPlayaNoDisponible.jpg";
 
     const clima = await obtenerClima(playa.latitud, playa.longitud);
 
@@ -146,11 +146,12 @@ export async function mostrarPlayasCercanas(comercio) {
 
 // 🔹 Inicializar Swiper ajustado al ancho móvil
 const swiperEl = contenedor.querySelector('.playasSwiper');
+const totalSlides = swiperEl.querySelectorAll('.swiper-slide').length;
 
   new Swiper(swiperEl, {
     slidesPerView: 2.3,
     spaceBetween: 1,
-    loop: true,
+    loop: totalSlides > 3,
     autoplay: { delay: 3000, disableOnInteraction: false },
     speed: 900,
   });

@@ -6,6 +6,40 @@ import { calcularTiempoEnVehiculo } from '../shared/utils.js';
 import { calcularDistancia } from './distanciaLugar.js';
 
 let ultimoCercanos = null;
+const PLACEHOLDER_LUGAR =
+  'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/imgagenLugarNoDisponible.jpg';
+
+function normalizarTexto(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function resolverImagenLugar(rawPath = '') {
+  const raw = String(rawPath || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const sanitized = raw.replace(/^public\//i, '').replace(/^\/+/, '');
+  if (!sanitized) return null;
+  if (/^galerialugares\//i.test(sanitized)) {
+    const path = sanitized.replace(/^galerialugares\//i, '');
+    return supabase.storage.from('galerialugares').getPublicUrl(path).data.publicUrl || null;
+  }
+  return supabase.storage.from('galerialugares').getPublicUrl(sanitized).data.publicUrl || null;
+}
+
+function esLugarTipoMall(lugar) {
+  const nombre = normalizarTexto(lugar?.nombre || '');
+  const categoria = normalizarTexto(lugar?.categoria || '');
+  return (
+    /\bmall\b/.test(nombre) ||
+    nombre.includes('shopping mall') ||
+    categoria.includes('shopping_mall') ||
+    categoria.includes('shopping mall')
+  );
+}
 
 function renderizarLugaresCercanos(cercanos, comercioOrigen) {
   const container = document.getElementById('cercanosLugaresContainer');
@@ -27,7 +61,7 @@ function renderizarLugaresCercanos(cercanos, comercioOrigen) {
 
   if (traducidos.length > 0) {
     slider.innerHTML = `
-      <div class="swiper lugaresSwiper w-full overflow-hidden px-1">
+      <div class="swiper lugaresSwiper w-full overflow-hidden px-1 py-[6px]">
         <div class="swiper-wrapper"></div>
       </div>
     `;
@@ -52,7 +86,7 @@ function renderizarLugaresCercanos(cercanos, comercioOrigen) {
       centeredSlides: false,
       slidesPerView: 1.25,
       spaceBetween: 1,
-      loop: true,
+      loop: numSlides > 3,
       speed: 900,
       grabCursor: true,
       autoplay: {
@@ -66,7 +100,14 @@ function renderizarLugaresCercanos(cercanos, comercioOrigen) {
   }
 }
 
-export async function mostrarLugaresCercanos(comercioOrigen) {
+export async function mostrarLugaresCercanos(comercioOrigen, opciones = {}) {
+  const {
+    maxMinutes = 20,
+    maxAirDistanceKm = null,
+    limitCandidates = null,
+    sameMunicipioFirst = false,
+    skipRouteApi = false,
+  } = opciones || {};
   const origenCoords = {
     lat: comercioOrigen.latitud,
     lon: comercioOrigen.longitud
@@ -102,21 +143,53 @@ export async function mostrarLugaresCercanos(comercioOrigen) {
 
     if (errorImg) throw errorImg;
 
-    const lugaresConImagen = lugaresConCoords.map(l => {
-      const portada = imagenes?.find(img => img.idLugar === l.id);
+    let lugaresConImagen = lugaresConCoords
+      .filter((l) => Number(l.id) !== Number(comercioOrigen.id))
+      .filter((l) => !esLugarTipoMall(l))
+      .map(l => {
+      const portada = imagenes?.find(img => Number(img.idLugar) === Number(l.id));
+      const imagenDirecta = resolverImagenLugar(l.imagen);
+      const imagenPortada = resolverImagenLugar(portada?.imagen);
       return {
         ...l,
-        imagen: portada?.imagen || null
+        imagen: imagenDirecta || imagenPortada || PLACEHOLDER_LUGAR
       };
     });
+
+    if (sameMunicipioFirst && comercioOrigen?.municipio) {
+      const muniNorm = String(comercioOrigen.municipio || '').trim().toLowerCase();
+      const same = lugaresConImagen.filter((l) => String(l.municipio || '').trim().toLowerCase() === muniNorm);
+      const others = lugaresConImagen.filter((l) => String(l.municipio || '').trim().toLowerCase() !== muniNorm);
+      lugaresConImagen = [...same, ...others];
+    }
+
+    if (Number.isFinite(Number(maxAirDistanceKm)) && Number(maxAirDistanceKm) > 0) {
+      const kmMax = Number(maxAirDistanceKm);
+      lugaresConImagen = lugaresConImagen.filter((lugar) => {
+        const km = calcularDistancia(origenCoords.lat, origenCoords.lon, lugar.latitud, lugar.longitud);
+        return Number.isFinite(km) && km <= kmMax;
+      });
+    }
+
+    if (Number.isFinite(Number(limitCandidates)) && Number(limitCandidates) > 0) {
+      lugaresConImagen = lugaresConImagen
+        .map((l) => ({
+          ...l,
+          _airKm: calcularDistancia(origenCoords.lat, origenCoords.lon, l.latitud, l.longitud),
+        }))
+        .sort((a, b) => (a._airKm ?? Infinity) - (b._airKm ?? Infinity))
+        .slice(0, Number(limitCandidates));
+    }
 
     // 🔹 Calcular distancia y tiempo
     const lugaresConTiempos = await Promise.all(
       lugaresConImagen.map(async (lugar) => {
-        const resultado = await getDrivingDistance(
-          { lat: origenCoords.lat, lng: origenCoords.lon },
-          { lat: lugar.latitud, lng: lugar.longitud }
-        );
+        const resultado = skipRouteApi
+          ? null
+          : await getDrivingDistance(
+              { lat: origenCoords.lat, lng: origenCoords.lon },
+              { lat: lugar.latitud, lng: lugar.longitud }
+            );
 
         let minutos = null;
         let texto = null;
@@ -161,8 +234,15 @@ export async function mostrarLugaresCercanos(comercioOrigen) {
     );
 
     // 🔹 Filtrar lugares dentro de 20 min (ajustable)
+    const seen = new Set();
     const cercanos = lugaresConTiempos
-      .filter(l => l.minutosCrudos !== null && l.minutosCrudos <= 20)
+      .filter(l => l.minutosCrudos !== null && l.minutosCrudos <= Number(maxMinutes))
+      .filter((l) => {
+        const key = `${normalizarTexto(l.nombre)}__${normalizarTexto(l.municipio)}__${Number(l.latitud).toFixed(5)}__${Number(l.longitud).toFixed(5)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
       .sort((a, b) => a.minutosCrudos - b.minutosCrudos);
 
     ultimoCercanos = { cercanos, comercioOrigen };
