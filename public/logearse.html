@@ -87,6 +87,9 @@
 </head>
 
 <body class="bg-oscuro min-h-screen text-white flex flex-col justify-center items-center gap-6 px-6 text-center font-sans">
+  <div id="headerContainer"></div>
+  <script type="module" src="./js/header.js"></script>
+
   <div id="globalLoader" class="fixed inset-0 bg-black/70 z-[9998] hidden items-center justify-center flex-col gap-4 transition-opacity duration-500 opacity-0">
     <img src="https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/findixi/loader.png" alt="Loader" data-i18n-alt="login.loaderAlt" class="w-20 h-20 md:w-24 md:h-24 animate-spin" style="animation: spin 1.5s linear infinite;">
     <p class="text-white text-lg font-medium tracking-wide" style="animation: blink 1.5s ease-in-out infinite alternate;" data-i18n="login.loader">Creando tu cuenta...</p>
@@ -151,21 +154,20 @@
     <div class="mb-4 rounded-2xl border border-cyan-300/40 bg-white/10 px-4 py-3 text-left text-white">
       <label class="flex items-start gap-2 text-sm">
         <input type="checkbox" id="consentimientoSms" class="mt-1 accent-celeste shrink-0" />
-        <span class="leading-5">
-          Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos.
-        </span>
+        <span id="smsConsentPrimary" class="leading-5"></span>
       </label>
-      <p class="mt-3 text-[11px] leading-4 text-white/80">
-        La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.
+      <p id="smsConsentSecondary" class="mt-3 text-[11px] leading-4 text-white/80">
       </p>
     </div>
 
     <div id="terminosWrapper" class="flex flex-col gap-2 mb-4 text-left">
       <label class="flex items-start gap-2 text-white text-sm">
         <input type="checkbox" id="terminosCheckbox" class="mt-1 accent-celeste" disabled />
-        <span>
-          He leído y acepto los
-          <button type="button" id="abrirTerminos" class="text-celeste underline">Términos y condiciones y la Política de privacidad de Findixi.</button>
+        <span id="terminosCheckboxCopy">
+          <span id="terminosPrefixText">He leído y acepto los</span>
+          <button type="button" id="abrirTerminos" class="text-celeste underline">
+            <span id="terminosLinkText">Términos y condiciones y la Política de privacidad de Findixi.</span>
+          </button>
         </span>
       </label>
       <p id="terminosError" class="text-red-500 text-sm hidden">Debes aceptar los Términos y condiciones y la Política de privacidad de Findixi.</p>
@@ -297,7 +299,7 @@
   <div id="modalTerminos" class="fixed inset-0 bg-black/50 z-[10000] hidden items-center justify-center px-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
       <div class="text-center flex items-center justify-between px-6 py-4 border-b">
-        <h2 class="text-center text-lg font-semibold text-gray-800">Términos y condiciones y Política de privacidad</h2>
+        <h2 id="terminosModalTitulo" class="text-center text-lg font-semibold text-gray-800">Términos y condiciones y Política de privacidad</h2>
         <button type="button" id="cerrarModalTerminos" class="text-gray-500 hover:text-gray-700">
           <i class="fas fa-times"></i>
         </button>
@@ -367,6 +369,165 @@
   </div>
 <script>
   document.addEventListener('DOMContentLoaded', () => { if (window.initI18n) window.initI18n(); });
+</script>
+<script>
+  (() => {
+    const COPY = {
+      es: {
+        termsPrefix: 'He leído y acepto los',
+        termsLink: 'Términos y condiciones y la Política de privacidad de Findixi.',
+        termsError: 'Debes aceptar los Términos y condiciones y la Política de privacidad de Findixi.',
+        termsModalTitle: 'Términos y condiciones y Política de privacidad',
+        termsModalHtml: `
+          <p><strong>TÉRMINOS Y CONDICIONES — FINDIXI</strong></p>
+          <p>Última actualización: abril 2025</p>
+          <p>Al crear una cuenta en Findixi, aceptas los siguientes términos:</p>
+          <ol class="text-start list-decimal pl-5 space-y-3">
+            <li><strong>Uso de la plataforma</strong><br />Findixi conecta usuarios con comercios locales. Debes usar la plataforma solo para fines legales y respetar estas condiciones en todo momento.</li>
+            <li><strong>Tu cuenta</strong><br />Eres responsable de proteger tus credenciales y de toda actividad que ocurra en tu cuenta. Notifícanos de inmediato ante cualquier uso no autorizado.</li>
+            <li><strong>Listados de comercios</strong><br />Cada comercio es responsable de la exactitud de su información. Findixi puede remover contenido que incumpla nuestras políticas sin previo aviso.</li>
+            <li><strong>Comunicaciones</strong><br />Al crear tu cuenta, aceptas recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de tu cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos.<p class="mt-2">La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.</p></li>
+            <li><strong>Propiedad intelectual</strong><br />El contenido, marca y materiales de la plataforma pertenecen a Findixi, salvo indicación contraria. No puedes reproducirlos sin autorización escrita.</li>
+            <li><strong>Limitación de responsabilidad</strong><br />Findixi no se responsabiliza por acciones, servicios o productos ofrecidos por los comercios listados en la plataforma.</li>
+            <li><strong>Cambios a estos términos</strong><br />Podemos actualizar estos términos en cualquier momento. El uso continuo de la plataforma implica aceptación de los cambios.</li>
+            <li><strong>Contacto</strong><br />Para preguntas sobre estos términos escríbenos a info@findixi.com</li>
+          </ol>
+          <p><strong>POLÍTICA DE PRIVACIDAD — FINDIXI</strong></p>
+          <p>Última actualización: abril 2025</p>
+          <p>En Findixi respetamos tu privacidad. Esta política explica qué información recopilamos, cómo la usamos y cómo la protegemos.</p>
+          <ol class="text-start list-decimal pl-5 space-y-3">
+            <li><strong>Información que recopilamos</strong><br />Cuando creas una cuenta o usas Findixi, podemos recopilar: nombre, dirección de correo electrónico, número de teléfono, ubicación aproximada, y datos de uso de la plataforma.</li>
+            <li><strong>Cómo usamos tu información</strong><br />Usamos tu información para: operar y mejorar la plataforma, enviarte comunicaciones relacionadas con tu cuenta, conectarte con comercios locales relevantes, y cumplir con obligaciones legales.</li>
+            <li><strong>Comunicaciones por SMS</strong><br />Al registrarte, aceptas recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de tu cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.</li>
+            <li><strong>Compartir información</strong><br />No vendemos tu información personal a terceros. Podemos compartirla con proveedores de servicios que nos ayudan a operar la plataforma, siempre bajo acuerdos de confidencialidad. También podemos divulgarla si la ley lo requiere.</li>
+            <li><strong>Cookies y tecnologías similares</strong><br />Findixi puede usar cookies para mejorar tu experiencia, analizar el uso de la plataforma y personalizar contenido. Puedes configurar tu navegador para rechazar cookies, aunque esto puede afectar algunas funciones.</li>
+            <li><strong>Seguridad de tu información</strong><br />Aplicamos medidas técnicas y organizativas razonables para proteger tu información. Sin embargo, ningún sistema es completamente seguro. Te recomendamos usar contraseñas únicas y mantener tus credenciales protegidas.</li>
+            <li><strong>Retención de datos</strong><br />Conservamos tu información mientras tu cuenta esté activa o según sea necesario para cumplir con obligaciones legales. Puedes solicitar la eliminación de tu cuenta y datos en cualquier momento escribiéndonos.</li>
+            <li><strong>Tus derechos</strong><br />Tienes derecho a: acceder a tu información personal, corregir datos incorrectos, solicitar la eliminación de tu cuenta, y limitar el uso de tu información a comunicaciones transaccionales y de servicio.</li>
+            <li><strong>Menores de edad</strong><br />Findixi no está dirigido a menores de 13 años. No recopilamos intencionalmente información de menores. Si crees que un menor ha creado una cuenta, contáctanos para eliminarla.</li>
+            <li><strong>Cambios a esta política</strong><br />Podemos actualizar esta política en cualquier momento. Te notificaremos por correo electrónico o mediante un aviso en la plataforma ante cambios importantes. El uso continuo de Findixi implica aceptación de la política actualizada.</li>
+            <li><strong>Contacto</strong><br />Para ejercer tus derechos o hacer preguntas sobre esta política:<br />Correo: info@findixi.com</li>
+          </ol>
+        `,
+        primary: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos.',
+        secondary: 'La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
+      },
+      en: {
+        termsPrefix: 'I have read and accept the',
+        termsLink: 'Findixi Terms and Conditions and Privacy Policy.',
+        termsError: 'You must accept the Findixi Terms and Conditions and Privacy Policy.',
+        termsModalTitle: 'Terms and Conditions and Privacy Policy',
+        termsModalHtml: `
+          <p><strong>TERMS AND CONDITIONS — FINDIXI</strong></p>
+          <p>Last updated: April 2025</p>
+          <p>By creating an account with Findixi, you agree to the following terms:</p>
+          <ol class="text-start list-decimal pl-5 space-y-3">
+            <li><strong>Platform use</strong><br />Findixi connects users with local businesses. You must use the platform only for lawful purposes and follow these terms at all times.</li>
+            <li><strong>Your account</strong><br />You are responsible for protecting your credentials and for all activity that occurs in your account. Notify us immediately of any unauthorized use.</li>
+            <li><strong>Business listings</strong><br />Each business is responsible for the accuracy of its information. Findixi may remove content that violates our policies without prior notice.</li>
+            <li><strong>Communications</strong><br />By creating your account, you agree to receive transactional SMS messages from Findixi related to account verification, login authentication, security notifications, and order updates.<p class="mt-2">Message frequency may vary. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</p></li>
+            <li><strong>Intellectual property</strong><br />The content, brand, and materials of the platform belong to Findixi unless otherwise stated. You may not reproduce them without written authorization.</li>
+            <li><strong>Limitation of liability</strong><br />Findixi is not responsible for the actions, services, or products offered by businesses listed on the platform.</li>
+            <li><strong>Changes to these terms</strong><br />We may update these terms at any time. Continued use of the platform means you accept the changes.</li>
+            <li><strong>Contact</strong><br />For questions about these terms, email us at info@findixi.com</li>
+          </ol>
+          <p><strong>PRIVACY POLICY — FINDIXI</strong></p>
+          <p>Last updated: April 2025</p>
+          <p>At Findixi, we respect your privacy. This policy explains what information we collect, how we use it, and how we protect it.</p>
+          <ol class="text-start list-decimal pl-5 space-y-3">
+            <li><strong>Information we collect</strong><br />When you create an account or use Findixi, we may collect: name, email address, phone number, approximate location, and platform usage data.</li>
+            <li><strong>How we use your information</strong><br />We use your information to operate and improve the platform, send communications related to your account, connect you with relevant local businesses, and comply with legal obligations.</li>
+            <li><strong>SMS communications</strong><br />By registering, you agree to receive transactional SMS messages from Findixi related to account verification, login authentication, security notifications, and order updates. Message frequency may vary. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</li>
+            <li><strong>Sharing information</strong><br />We do not sell your personal information to third parties. We may share it with service providers that help us operate the platform, always under confidentiality agreements. We may also disclose it if required by law.</li>
+            <li><strong>Cookies and similar technologies</strong><br />Findixi may use cookies to improve your experience, analyze platform usage, and personalize content. You can configure your browser to reject cookies, though this may affect some features.</li>
+            <li><strong>Security of your information</strong><br />We apply reasonable technical and organizational measures to protect your information. However, no system is completely secure. We recommend using unique passwords and keeping your credentials protected.</li>
+            <li><strong>Data retention</strong><br />We retain your information while your account is active or as necessary to comply with legal obligations. You can request deletion of your account and data at any time by contacting us.</li>
+            <li><strong>Your rights</strong><br />You have the right to access your personal information, correct inaccurate data, request account deletion, and limit the use of your information to transactional and service communications.</li>
+            <li><strong>Minors</strong><br />Findixi is not intended for children under 13. We do not knowingly collect information from minors. If you believe a minor has created an account, contact us so we can delete it.</li>
+            <li><strong>Changes to this policy</strong><br />We may update this policy at any time. We will notify you by email or through an in-platform notice if there are important changes. Continued use of Findixi means you accept the updated policy.</li>
+            <li><strong>Contact</strong><br />To exercise your rights or ask questions about this policy:<br />Email: info@findixi.com</li>
+          </ol>
+        `,
+        primary: 'I agree to receive transactional SMS messages from Findixi related to account verification, login authentication, security notifications, and order updates.',
+        secondary: 'Message frequency may vary. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.',
+      },
+      fallback: {
+        termsPrefix: 'I have read and accept the',
+        termsLink: 'Findixi Terms and Conditions and Privacy Policy.',
+        termsError: 'You must accept the Findixi Terms and Conditions and Privacy Policy.',
+        termsModalTitle: 'Terms and Conditions and Privacy Policy',
+        termsModalHtml: `
+          <p><strong>TERMS AND CONDITIONS — FINDIXI</strong></p>
+          <p>Last updated: April 2025</p>
+          <p>By creating an account with Findixi, you agree to the following terms:</p>
+          <ol class="text-start list-decimal pl-5 space-y-3">
+            <li><strong>Platform use</strong><br />Findixi connects users with local businesses. You must use the platform only for lawful purposes and follow these terms at all times.</li>
+            <li><strong>Your account</strong><br />You are responsible for protecting your credentials and for all activity that occurs in your account. Notify us immediately of any unauthorized use.</li>
+            <li><strong>Business listings</strong><br />Each business is responsible for the accuracy of its information. Findixi may remove content that violates our policies without prior notice.</li>
+            <li><strong>Communications</strong><br />By creating your account, you agree to receive transactional SMS messages from Findixi related to account verification, login authentication, security notifications, and order updates.<p class="mt-2">Message frequency may vary. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</p></li>
+            <li><strong>Intellectual property</strong><br />The content, brand, and materials of the platform belong to Findixi unless otherwise stated. You may not reproduce them without written authorization.</li>
+            <li><strong>Limitation of liability</strong><br />Findixi is not responsible for the actions, services, or products offered by businesses listed on the platform.</li>
+            <li><strong>Changes to these terms</strong><br />We may update these terms at any time. Continued use of the platform means you accept the changes.</li>
+            <li><strong>Contact</strong><br />For questions about these terms, email us at info@findixi.com</li>
+          </ol>
+          <p><strong>PRIVACY POLICY — FINDIXI</strong></p>
+          <p>Last updated: April 2025</p>
+          <p>At Findixi, we respect your privacy. This policy explains what information we collect, how we use it, and how we protect it.</p>
+          <ol class="text-start list-decimal pl-5 space-y-3">
+            <li><strong>Information we collect</strong><br />When you create an account or use Findixi, we may collect: name, email address, phone number, approximate location, and platform usage data.</li>
+            <li><strong>How we use your information</strong><br />We use your information to operate and improve the platform, send communications related to your account, connect you with relevant local businesses, and comply with legal obligations.</li>
+            <li><strong>SMS communications</strong><br />By registering, you agree to receive transactional SMS messages from Findixi related to account verification, login authentication, security notifications, and order updates. Message frequency may vary. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.</li>
+            <li><strong>Sharing information</strong><br />We do not sell your personal information to third parties. We may share it with service providers that help us operate the platform, always under confidentiality agreements. We may also disclose it if required by law.</li>
+            <li><strong>Cookies and similar technologies</strong><br />Findixi may use cookies to improve your experience, analyze platform usage, and personalize content. You can configure your browser to reject cookies, though this may affect some features.</li>
+            <li><strong>Security of your information</strong><br />We apply reasonable technical and organizational measures to protect your information. However, no system is completely secure. We recommend using unique passwords and keeping your credentials protected.</li>
+            <li><strong>Data retention</strong><br />We retain your information while your account is active or as necessary to comply with legal obligations. You can request deletion of your account and data at any time by contacting us.</li>
+            <li><strong>Your rights</strong><br />You have the right to access your personal information, correct inaccurate data, request account deletion, and limit the use of your information to transactional and service communications.</li>
+            <li><strong>Minors</strong><br />Findixi is not intended for children under 13. We do not knowingly collect information from minors. If you believe a minor has created an account, contact us so we can delete it.</li>
+            <li><strong>Changes to this policy</strong><br />We may update this policy at any time. We will notify you by email or through an in-platform notice if there are important changes. Continued use of Findixi means you accept the updated policy.</li>
+            <li><strong>Contact</strong><br />To exercise your rights or ask questions about this policy:<br />Email: info@findixi.com</li>
+          </ol>
+        `,
+        primary: 'I agree to receive transactional SMS messages from Findixi related to account verification, login authentication, security notifications, and order updates.',
+        secondary: 'Message frequency may vary. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.',
+      },
+    };
+
+    const getLang = () => {
+      const stored = (localStorage.getItem('lang') || '').toLowerCase();
+      const htmlLang = (document.documentElement.lang || '').toLowerCase();
+      const lang = stored || htmlLang || 'es';
+      if (lang.startsWith('es')) return 'es';
+      if (lang.startsWith('en')) return 'en';
+      return 'fallback';
+    };
+
+    const applyConsentCopy = () => {
+      const lang = getLang();
+      const copy = COPY[lang] || COPY.fallback;
+      const primary = document.getElementById('smsConsentPrimary');
+      const secondary = document.getElementById('smsConsentSecondary');
+      const prefix = document.getElementById('terminosPrefixText');
+      const link = document.getElementById('terminosLinkText');
+      const error = document.getElementById('terminosError');
+      const modalTitle = document.getElementById('terminosModalTitulo');
+      const modalContent = document.getElementById('modalContenido');
+      const cancelBtn = document.getElementById('cancelarModalTerminos');
+      const acceptBtn = document.getElementById('aceptarTerminosBtn');
+      if (primary) primary.textContent = copy.primary;
+      if (secondary) secondary.textContent = copy.secondary;
+      if (prefix) prefix.textContent = copy.termsPrefix;
+      if (link) link.textContent = copy.termsLink;
+      if (error) error.textContent = copy.termsError;
+      if (modalTitle) modalTitle.textContent = copy.termsModalTitle;
+      if (modalContent && copy.termsModalHtml) modalContent.innerHTML = copy.termsModalHtml;
+      if (cancelBtn) cancelBtn.textContent = lang === 'es' ? 'Cancelar' : 'Cancel';
+      if (acceptBtn) acceptBtn.textContent = lang === 'es' ? 'Aceptar' : 'Accept';
+    };
+
+    window.addEventListener('lang:changed', applyConsentCopy);
+    document.addEventListener('DOMContentLoaded', applyConsentCopy);
+    applyConsentCopy();
+  })();
 </script>
   <script type="module" src="js/introSplash.js"></script>
   <script type="module" src="js/betaBanner.js"></script>
