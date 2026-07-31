@@ -33,6 +33,11 @@ function getNavCopy() {
   };
 }
 
+function getAppBase() {
+  const isLocal = location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+  return isLocal ? '/public/' : '/';
+}
+
 function openWithFallback(nativeUrl, webUrl) {
   let hidden = false;
   const markHidden = () => {
@@ -132,13 +137,12 @@ function attachGpsAction(cardNode, comercio = {}) {
 
 function crearIconoUsuario(src, headingDeg = null) {
   const safeSrc = typeof src === 'string' && src.trim() ? src.trim() : FALLBACK_USER_IMG;
-  const hasHeading = Number.isFinite(headingDeg);
-  const pointer = hasHeading
-    ? `
+  const safeHeading = normalizeHeadingDeg(headingDeg) ?? 0;
+  const pointer = `
       <div style="
         position:absolute;
         inset:0;
-        transform: rotate(${headingDeg}deg);
+        transform: rotate(${safeHeading}deg);
         transform-origin: 50% 50%;
         pointer-events:none;
       ">
@@ -154,8 +158,7 @@ function crearIconoUsuario(src, headingDeg = null) {
           filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35));
         "></div>
       </div>
-    `
-    : '';
+    `;
 
   return L.divIcon({
     className: 'user-marker',
@@ -231,7 +234,6 @@ const CATEGORY_COLORS = {
 let map, markersLayer, userMarker;
 let userLat = null;
 let userLon = null;
-let userAccuracyCircle = null;
 let geoWatchId = null;
 let mapInteractionsBound = false;
 let followControlAdded = false;
@@ -240,234 +242,367 @@ let ultimaPosicion = null;
 let userIconSrc = null;
 let userHeadingDeg = null;
 let lastHeadingApplied = null;
+let followControlButton = null;
+let speedSamplesMph = [];
+let previousPositionForHeading = null;
+let playasLayer = null;
+let lugaresLayer = null;
+let playasCercanasCache = [];
+let lugaresCercanosCache = [];
+let capasOpcionalesUltimaClave = '';
 
 
 
 const $radio = document.getElementById('radioKm');
 const $radioLabel = document.getElementById('radioKmLabel');
-const $btnCentrarme = document.getElementById('btnCentrarme');
-const $btnRecargar = document.getElementById('btnRecargar');
 const $loader = document.getElementById('loader');
 const $search = document.getElementById('searchNombre');
 const $filtroAbierto = document.getElementById('filtroAbierto');
-const $filtroActivos = document.getElementById('filtroActivos');
 const $filtroFavoritos = document.getElementById('filtroFavoritos');
 const $filtroCategoria = document.getElementById('filtroCategoria');
 const $btnToggleFiltros = document.getElementById('btnToggleFiltros');
 const $panelFiltros = document.getElementById('panelFiltros');
-const $categoriaRow = document.getElementById('categoriaFiltrosRow');
 const $geoFallbackPanel = document.getElementById('geoFallbackPanel');
 const $geoFallbackStatus = document.getElementById('geoFallbackStatus');
 const $fallbackMunicipioSelect = document.getElementById('fallbackMunicipioSelect');
 const $btnFallbackApplyMunicipio = document.getElementById('btnFallbackApplyMunicipio');
 const $btnFallbackRetryGeo = document.getElementById('btnFallbackRetryGeo');
+const $togglePlayas = document.getElementById('togglePlayas');
+const $toggleLugares = document.getElementById('toggleLugares');
 
 let comerciosOriginales = [];
 let searchDebounceId = null;
 let favoritosUsuarioIds = new Set();
 let favoritosPromise = null;
-let selectedCategoryKeys = new Set();
 let municipiosFallback = [];
 let geoFallbackReady = false;
 
-
-
-let selectedCategory = null;
-
-// 🧩 Relación entre IDs y claves de categorías
-const CATEGORY_ID_TO_KEY = {
-  1: 'restaurantes',
-  2: 'coffee-shops',
-  3: 'panaderias',
-  4: 'food-trucks',
-  5: 'bares',
-  6: 'dispensarios',
-};
-
-// 🔧 Utilidades para normalizar y obtener categorías de los comercios
-const _toArray = (v) => Array.isArray(v) ? v : (v == null ? [] : [v]);
-const _norm = (s) => typeof s === 'string' ? s.trim().toLowerCase() : '';
-
-function _keysFromNames(c) {
-  const names = [
-    c.categoria,
-    c.categoria_nombre,
-    c.categoriaPrincipal,
-    ...(c.categoriasNombre || []),
-  ].map(_norm).filter(Boolean);
-
-  const keys = new Set();
-  names.forEach(n => {
-    CATEGORY_FILTERS.forEach(f => {
-      const hit =
-        n.includes(f.label.toLowerCase()) ||
-        (f.matchers || []).some(m => n.includes(m.toLowerCase()));
-      if (hit) keys.add(f.key);
-    });
-  });
-  return keys;
-}
-
-function _keysFromIds(c) {
-  const ids = _toArray(c.idCategoria);
-  const keys = new Set();
-  ids.forEach(id => {
-    const num = Number(id);
-    if (Number.isFinite(num) && CATEGORY_ID_TO_KEY[num]) {
-      keys.add(CATEGORY_ID_TO_KEY[num]);
-    }
-  });
-  return keys;
-}
-
-// 🔹 Obtiene todas las claves de categoría que aplican a un comercio
-function getCategoryKeysFromComercio(c) {
-  const keys = _keysFromNames(c);
-  if (keys.size === 0) {
-    _keysFromIds(c).forEach(k => keys.add(k));
+function setMapFollowMode(enabled) {
+  siguiendoUsuario = enabled;
+  if (map) {
+    map._userMovedManually = !enabled;
   }
-  return Array.from(keys);
+  if (followControlButton) {
+    followControlButton.classList.toggle('hidden', enabled);
+  }
 }
 
-// 🔹 Comprueba si el comercio coincide con las categorías seleccionadas
-function comercioCoincideCategorias(comercio) {
-  // Si no hay categorías seleccionadas, mostrar todo
-  if (!selectedCategoryKeys.size) return true;
+function updateFollowControlStyle() {
+  if (!followControlButton) return;
+  followControlButton.style.cssText = `
+    width: 54px;
+    height: 54px;
+    border: 2px solid rgba(255,255,255,0.95);
+    border-radius: 9999px;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, #ff7a18 0%, #ff4d4d 100%);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.28), 0 0 0 6px rgba(255,122,24,0.18);
+    font-size: 18px;
+    display: grid;
+    place-items: center;
+    margin-right: 14px;
+    margin-bottom: 76px;
+    position: relative;
+  `;
+}
 
-  // Normaliza los nombres de categoría del comercio
-  const nombres = [
-    comercio.categoria,
-    comercio.categoria_nombre,
-    comercio.categoriaNombre,
-    comercio.categoriaPrincipal,
-  ]
-    .filter(Boolean)
-    .map((x) => x.toLowerCase());
+function normalizeHeadingDeg(deg) {
+  if (!Number.isFinite(deg)) return null;
+  const normalized = deg % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
 
-  // Compara con las categorías seleccionadas
-  for (const catKey of selectedCategoryKeys) {
-    const cat = CATEGORY_FILTERS.find((f) => f.key === catKey);
-    if (!cat) continue;
+function getBearingDegrees(from, to) {
+  if (!from || !to) return null;
+  const lat1 = Number(from.lat);
+  const lon1 = Number(from.lon);
+  const lat2 = Number(to.lat);
+  const lon2 = Number(to.lon);
+  if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
 
-    // Si alguna palabra clave de esa categoría aparece en el comercio, lo muestra
-    const tieneCoincidencia = cat.matchers.some((matcher) =>
-      nombres.some((n) => n.includes(matcher.toLowerCase()))
-    );
+  const toRad = (value) => (value * Math.PI) / 180;
+  const toDeg = (value) => (value * 180) / Math.PI;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
 
-    if (tieneCoincidencia) return true;
+  return normalizeHeadingDeg(toDeg(Math.atan2(y, x)));
+}
+
+function getZoomForSpeedMph(mph) {
+  const lastZoomMode = Number(map?._followZoomMode);
+  const previousZoom = Number.isFinite(lastZoomMode) ? lastZoomMode : 13;
+
+  if (!Number.isFinite(mph)) {
+    return previousZoom;
   }
 
-  return false;
-}
-
-/*
-// 🎯 Renderiza los botones de categorías
-function renderCategoryButtons() {
-  if (!$categoriaRow) return;
-  $categoriaRow.innerHTML = '';
-
-  // 🧩 Activar todas las categorías al inicio (solo la primera vez)
-  if (selectedCategoryKeys.size === 0) {
-    CATEGORY_FILTERS.forEach(cat => selectedCategoryKeys.add(cat.key));
+  if (previousZoom >= 15) {
+    if (mph > 8) return 13;
+    return 15;
   }
 
-  const container = document.createElement('div');
-  container.className = 'flex flex-wrap justify-center gap-3 mb-4 relative z-10';
+  if (previousZoom === 13) {
+    if (mph <= 6) return 15;
+    if (mph >= 38) return 11;
+    return 13;
+  }
 
-  CATEGORY_FILTERS.forEach(cat => {
-    const isActive = selectedCategoryKeys.has(cat.key);
+  if (mph <= 32) {
+    return 13;
+  }
+  return 11;
+}
 
-    // 🔢 Conteo de comercios por categoría (según coincidencia flexible)
-    const count = (comerciosOriginales || []).filter(c =>
-      getCategoryKeysFromComercio(c).includes(cat.key)
-    ).length;
+function getSmoothedSpeedMph(mph) {
+  if (!Number.isFinite(mph)) return mph;
+  speedSamplesMph.push(mph);
+  if (speedSamplesMph.length > 5) {
+    speedSamplesMph.shift();
+  }
 
-    const btn = document.createElement('button');
-    btn.dataset.key = cat.key;
-    btn.className = `
-      relative category-btn flex flex-col items-center justify-center w-16 text-[11px] font-light
-      focus:outline-none transition-transform transform hover:scale-105 overflow-visible
-    `;
+  const values = speedSamplesMph.filter((value) => Number.isFinite(value));
+  if (!values.length) return mph;
 
-    btn.innerHTML = `
-      <div class="relative w-12 h-12 rounded-full overflow-visible shadow border-2 ${
-        isActive ? 'border-[#3ea6c4]' : 'border-gray-300'
-      } flex items-center justify-center">
-        <img
-          src="${cat.image}"
-          alt="${cat.label}"
-          class="w-full h-full object-cover rounded-full ${
-            isActive ? 'opacity-100' : 'opacity-60 grayscale'
-          }"
-        />
-        <div class="absolute -top-[0.12rem] -right-[5px] ${
-          count > 0 ? 'bg-red-400 text-white' : 'bg-gray-300 text-gray-600'
-        } text-[9px] font-light rounded-full w-4 h-4 flex items-center justify-center shadow-md ring-2 ring-white z-20">
-          ${count}
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return Infinity;
+  const R = 6371e3;
+  const toRad = (value) => (value * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))) / 1000;
+}
+
+function getSearchRadiusKm() {
+  const radioMiles = Number($radio?.value ?? 5) || 5;
+  return Math.max(0.5, radioMiles) * 1.60934;
+}
+
+function createOptionalPinIcon({ iconClass, color, borderColor }) {
+  return L.divIcon({
+    className: 'optional-map-marker',
+    html: `
+      <div style="
+        position: relative;
+        width: 44px;
+        height: 54px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+      ">
+        <div style="
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: white;
+          border: 3px solid ${borderColor};
+          box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+          display: grid;
+          place-items: center;
+          color: ${color};
+          font-size: 18px;
+        ">
+          <i class="${iconClass}"></i>
         </div>
+        <div style="
+          width: 2px;
+          height: 10px;
+          background: ${borderColor};
+          border-radius: 999px;
+          margin-top: -1px;
+        "></div>
       </div>
-      <span class="mt-1 text-[11px] ${
-        isActive ? 'text-[#3ea6c4]' : 'text-gray-500'
-      } block text-center">
-        ${cat.label}
-      </span>
-    `;
-
-    btn.addEventListener('click', () => {
-      if (selectedCategoryKeys.has(cat.key)) {
-        selectedCategoryKeys.delete(cat.key);
-      } else {
-        selectedCategoryKeys.add(cat.key);
-      }
-
-      renderCategoryButtons();
-      aplicarFiltros();
-    });
-
-    container.appendChild(btn);
+    `,
+    iconSize: [44, 54],
+    iconAnchor: [22, 54],
+    popupAnchor: [0, -50],
   });
+}
 
-  // 📊 Texto de cantidad seleccionada (centrado debajo)
-  const info = document.createElement('div');
-  info.className = 'text-center text-[12px] text-gray-500 w-full mt-2';
-  const total = selectedCategoryKeys.size;
-  info.textContent = `${total} ${
-    total === 1 ? 'Categoría seleccionada' : 'Categorías seleccionadas para mostrar.'
-  }`;
+function createBeachIcon() {
+  return createOptionalPinIcon({
+    iconClass: 'fas fa-umbrella-beach',
+    color: '#0f766e',
+    borderColor: '#06b6d4',
+  });
+}
 
-  // ✅ Contenedor principal
-  const wrapper = document.createElement('div');
-  wrapper.className = 'flex flex-col items-center w-full';
-  wrapper.appendChild(container);
-  wrapper.appendChild(info);
+function createLugarIcon() {
+  return createOptionalPinIcon({
+    iconClass: 'fas fa-signs-post',
+    color: '#92400e',
+    borderColor: '#f59e0b',
+  });
+}
 
-  $categoriaRow.innerHTML = '';
-  $categoriaRow.appendChild(wrapper);
-} */
+function buildOptionalPopup({ title, subtitle, href, ctaLabel, accent = 'sky' }) {
+  const bg = accent === 'amber' ? 'bg-amber-500' : 'bg-sky-500';
+  const hover = accent === 'amber' ? 'hover:bg-amber-600' : 'hover:bg-sky-600';
+  return `
+    <div class="w-56 rounded-2xl bg-white p-3 text-center">
+      <div class="mb-1 text-sm font-semibold text-slate-800">${title}</div>
+      <div class="mb-3 text-xs text-slate-500">${subtitle || ''}</div>
+      <a href="${href}" class="inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-semibold text-white ${bg} ${hover}">
+        ${ctaLabel}
+      </a>
+    </div>
+  `;
+}
 
-// 📍 Filtra comercios según categoría visual
-function filtrarPorCategoria(comercio) {
-  if (!selectedCategory) return true;
+function renderOptionalLayer(layer, items, iconFactory, popupFactory) {
+  if (!layer) return;
+  layer.clearLayers();
+  if (!Array.isArray(items) || items.length === 0) return;
+  items.forEach((item) => {
+    const lat = Number(item.latitud);
+    const lon = Number(item.longitud);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const marker = L.marker([lat, lon], { icon: iconFactory() });
+    if (popupFactory) {
+      marker.bindPopup(popupFactory(item), {
+        maxWidth: 260,
+        className: 'popup-card--clean',
+      });
+    }
+    layer.addLayer(marker);
+  });
+}
 
-  const nombreCategoria = (comercio.categoria || comercio.categoria_nombre || '').toLowerCase();
-  const key = selectedCategory.toLowerCase();
-
-  switch (key) {
-    case 'restaurantes':
-      return nombreCategoria.includes('restaurante');
-    case 'food-trucks':
-      return nombreCategoria.includes('food') || nombreCategoria.includes('truck');
-    case 'coffee-shops':
-      return nombreCategoria.includes('coffee') || nombreCategoria.includes('café');
-    case 'panaderias':
-      return nombreCategoria.includes('panader');
-    case 'bares':
-      return nombreCategoria.includes('bar');
-    case 'dispensarios':
-      return nombreCategoria.includes('dispens');
-    default:
-      return true;
+async function cargarPlayasEnMapa() {
+  if (!playasLayer) return;
+  playasLayer.clearLayers();
+  if (!$togglePlayas?.checked || typeof userLat !== 'number' || typeof userLon !== 'number') {
+    return;
   }
+
+  const radiusKm = getSearchRadiusKm();
+  try {
+    const { data, error } = await supabase
+      .from('playas')
+      .select('id, nombre, municipio, latitud, longitud');
+
+    if (error) throw error;
+
+    const items = (Array.isArray(data) ? data : [])
+      .map((playa) => ({
+        ...playa,
+        latitud: Number(playa.latitud),
+        longitud: Number(playa.longitud),
+      }))
+      .filter((playa) =>
+        Number.isFinite(playa.latitud) &&
+        Number.isFinite(playa.longitud) &&
+        getDistanceKm(userLat, userLon, playa.latitud, playa.longitud) <= radiusKm
+      )
+      .sort(
+        (a, b) =>
+          getDistanceKm(userLat, userLon, a.latitud, a.longitud) -
+          getDistanceKm(userLat, userLon, b.latitud, b.longitud)
+      )
+      .slice(0, 30);
+
+    playasCercanasCache = items;
+    renderOptionalLayer(
+      playasLayer,
+      items,
+      createBeachIcon,
+      (playa) =>
+        buildOptionalPopup({
+          title: playa.nombre || 'Playa',
+          subtitle: playa.municipio || '',
+          href: `${getAppBase()}perfilPlaya.html?id=${playa.id}`,
+          ctaLabel: 'Ver playa',
+          accent: 'sky',
+        })
+    );
+  } catch (err) {
+    console.error('❌ Error cargando playas en el mapa:', err);
+  }
+}
+
+async function cargarLugaresEnMapa() {
+  if (!lugaresLayer) return;
+  lugaresLayer.clearLayers();
+  if (!$toggleLugares?.checked || typeof userLat !== 'number' || typeof userLon !== 'number') {
+    return;
+  }
+
+  const radiusKm = getSearchRadiusKm();
+  try {
+    const { data, error } = await supabase
+      .from('LugaresTuristicos')
+      .select('id, nombre, municipio, latitud, longitud, categoria, activo')
+      .eq('activo', true);
+
+    if (error) throw error;
+
+    const items = (Array.isArray(data) ? data : [])
+      .map((lugar) => ({
+        ...lugar,
+        latitud: Number(lugar.latitud),
+        longitud: Number(lugar.longitud),
+      }))
+      .filter((lugar) =>
+        Number.isFinite(lugar.latitud) &&
+        Number.isFinite(lugar.longitud) &&
+        getDistanceKm(userLat, userLon, lugar.latitud, lugar.longitud) <= radiusKm
+      )
+      .sort(
+        (a, b) =>
+          getDistanceKm(userLat, userLon, a.latitud, a.longitud) -
+          getDistanceKm(userLat, userLon, b.latitud, b.longitud)
+      )
+      .slice(0, 30);
+
+    lugaresCercanosCache = items;
+    renderOptionalLayer(
+      lugaresLayer,
+      items,
+      createLugarIcon,
+      (lugar) =>
+        buildOptionalPopup({
+          title: lugar.nombre || 'Lugar',
+          subtitle: lugar.municipio || lugar.categoria || '',
+          href: `${getAppBase()}perfilLugar.html?id=${lugar.id}`,
+          ctaLabel: 'Ver lugar',
+          accent: 'amber',
+        })
+    );
+  } catch (err) {
+    console.error('❌ Error cargando lugares en el mapa:', err);
+  }
+}
+
+async function refreshOptionalLayers() {
+  const latKey = Number.isFinite(userLat) ? userLat.toFixed(3) : 'na';
+  const lonKey = Number.isFinite(userLon) ? userLon.toFixed(3) : 'na';
+  const key = [
+    latKey,
+    lonKey,
+    getSearchRadiusKm().toFixed(2),
+    Boolean($togglePlayas?.checked),
+    Boolean($toggleLugares?.checked),
+  ].join('|');
+
+  if (key === capasOpcionalesUltimaClave) return;
+  capasOpcionalesUltimaClave = key;
+
+  await Promise.all([
+    cargarPlayasEnMapa(),
+    cargarLugaresEnMapa(),
+  ]);
 }
 
 function toggleLoader(show) {
@@ -614,11 +749,6 @@ async function applyFallbackMunicipio() {
     userMarker.remove();
     userMarker = null;
   }
-  if (userAccuracyCircle) {
-    userAccuracyCircle.remove();
-    userAccuracyCircle = null;
-  }
-
   userLat = coords.lat;
   userLon = coords.lon;
   map.setView([coords.lat, coords.lon], 12, { animate: true });
@@ -661,80 +791,6 @@ function normalizarTextoPlano(valor) {
     .toLowerCase();
 }
 
-const CATEGORY_FILTERS = [
-  {
-    key: 'restaurantes',
-    label: 'Restaurantes',
-    image:
-      'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/categorias/RESTAURANTES.jpg',
-    matchers: ['restaurante', 'restaurantes'],
-  },
-  {
-    key: 'food-trucks',
-    label: 'Food Trucks',
-    image:
-      'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/categorias/FOOD%20TRUCK.jpg',
-    matchers: ['food truck', 'food trucks'],
-  },
-  {
-    key: 'coffee-shops',
-    label: 'Coffee Shops',
-    image:
-      'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/categorias/COFFE%20SHOP.jpg',
-    matchers: ['coffee shop', 'coffee shops', 'café', 'cafe'],
-  },
-  {
-    key: 'panaderias',
-    label: 'Panaderías',
-    image:
-      'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/categorias/panaderias.jpg',
-    matchers: ['panaderia', 'panaderías', 'panaderia'],
-  },
-  {
-    key: 'bares',
-    label: 'Bares',
-    image:
-      'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/categorias/Bares.jpg',
-    matchers: ['bar', 'bares'],
-  },
-  {
-    key: 'dispensarios',
-    label: 'Dispensarios',
-    image:
-      'https://zgjaxanqfkweslkxtayt.supabase.co/storage/v1/object/public/imagenesapp/categorias/Dispensario.jpg',
-    matchers: ['dispensario', 'dispensarios'],
-  },
-];
-
-const CATEGORY_FILTERS_MAP = CATEGORY_FILTERS.reduce((acc, filter) => {
-  acc[filter.key] = {
-    ...filter,
-    normalizedMatchers: filter.matchers.map(normalizarTextoPlano),
-  };
-  return acc;
-}, {});
-
-function descomponerValoresMultiples(valor) {
-  if (Array.isArray(valor)) return valor;
-  if (valor === null || valor === undefined) return [];
-
-  if (typeof valor === 'string') {
-    const trimmed = valor.trim();
-    if (!trimmed) return [];
-    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-      const contenido = trimmed.slice(1, -1);
-      if (!contenido) return [];
-      return contenido.split(',').map(item => item.trim()).filter(Boolean);
-    }
-    if (trimmed.includes(',')) {
-      return trimmed.split(',').map(item => item.trim()).filter(Boolean);
-    }
-    return [trimmed];
-  }
-
-  return [valor];
-}
-
 function normalizarId(valor) {
   if (valor === null || valor === undefined) return null;
   if (typeof valor === 'number') {
@@ -757,94 +813,6 @@ function setTieneId(conjunto, valor) {
   return !Number.isNaN(num) && conjunto.has(num);
 }
 
-function extraerIdsCategoria(comercio = {}) {
-  const ids = new Set();
-
-  const agregarId = (valor) => {
-    const key = normalizarId(valor);
-    if (key !== null && key !== '') {
-      ids.add(key);
-    }
-  };
-
-  descomponerValoresMultiples(comercio.idCategoria).forEach(agregarId);
-  descomponerValoresMultiples(comercio.categoriasId).forEach(agregarId);
-
-  if (Array.isArray(comercio.categorias)) {
-    comercio.categorias.forEach(item => {
-      if (item === null || item === undefined) return;
-      if (typeof item === 'number' || typeof item === 'string') {
-        agregarId(item);
-      } else if (typeof item === 'object') {
-        if ('idCategoria' in item) agregarId(item.idCategoria);
-        if ('id' in item) agregarId(item.id);
-      }
-    });
-  }
-
-  return Array.from(ids);
-}
-
-function obtenerCategoriasNormalizadas(comercio = {}) {
-  const etiquetas = new Set();
-
-  const agregar = (valor) => {
-    if (typeof valor !== 'string') return;
-    const limpio = normalizarTextoPlano(valor);
-    if (limpio) etiquetas.add(limpio);
-  };
-
-  [
-    comercio.categoria,
-    comercio.nombreCategoria,
-    comercio.categoriaNombre,
-    comercio.categoriaPrincipal,
-  ].forEach(agregar);
-
-  if (Array.isArray(comercio.categoriasNombre)) {
-    comercio.categoriasNombre.forEach(agregar);
-  }
-
-  if (Array.isArray(comercio.categorias)) {
-    comercio.categorias.forEach(cat => {
-      if (typeof cat === 'string') agregar(cat);
-      else if (typeof cat?.nombre === 'string') agregar(cat.nombre);
-    });
-  }
-
-  return Array.from(etiquetas);
-}
-
-function obtenerCategoriasOriginales(comercio = {}) {
-  const etiquetas = new Set();
-
-  const agregar = (valor) => {
-    if (typeof valor !== 'string') return;
-    const limpio = valor.trim();
-    if (limpio) etiquetas.add(limpio);
-  };
-
-  [
-    comercio.categoria,
-    comercio.nombreCategoria,
-    comercio.categoriaNombre,
-    comercio.categoriaPrincipal,
-  ].forEach(agregar);
-
-  if (Array.isArray(comercio.categoriasNombre)) {
-    comercio.categoriasNombre.forEach(agregar);
-  }
-
-  if (Array.isArray(comercio.categorias)) {
-    comercio.categorias.forEach(cat => {
-      if (typeof cat === 'string') agregar(cat);
-      else if (typeof cat?.nombre === 'string') agregar(cat.nombre);
-    });
-  }
-
-  return Array.from(etiquetas);
-}
-
 function aplicarFiltros() {
   if (!Array.isArray(comerciosOriginales) || !comerciosOriginales.length) {
     markersLayer?.clearLayers();
@@ -863,11 +831,6 @@ function aplicarFiltros() {
     });
   }
 
-  // 🎯 Nuevo filtro por categoría visual (botones)
-  if (selectedCategory) {
-    resultado = resultado.filter(filtrarPorCategoria);
-  }
-
   // 🟩 Abierto ahora
   if ($filtroAbierto?.checked) {
     resultado = resultado.filter(c => c.abiertoAhora === true || c.abierto === true);
@@ -876,11 +839,6 @@ function aplicarFiltros() {
   // 💜 Mis favoritos
   if ($filtroFavoritos?.checked && favoritosUsuarioIds.size > 0) {
     resultado = resultado.filter(c => setTieneId(favoritosUsuarioIds, c.id));
-  }
-
-  // ⚙️ (Si decides mantenerlo más adelante)
-  if ($filtroActivos?.checked) {
-    resultado = resultado.filter(c => c.activo === true || c.activoEnPeErre === true);
   }
 
   // 🗺️ Renderizar resultados en el mapa
@@ -958,7 +916,7 @@ function initMap() {
     maxZoom: 22,     // 🔥 permite acercar más de lo normal
     minZoom: 6,
     zoomControl: true,
-  }).setView([18.2208, -66.5901], 15); // Zoom inicial
+  }).setView([18.2208, -66.5901], 13); // Zoom inicial más amplio
 
   // ✅ Capa de mapa (Carto Voyager o OpenStreetMap)
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -969,6 +927,8 @@ function initMap() {
 
   // ✅ Capa para los marcadores
   markersLayer = L.layerGroup().addTo(map);
+  playasLayer = L.layerGroup().addTo(map);
+  lugaresLayer = L.layerGroup().addTo(map);
 
 }
 
@@ -1128,6 +1088,7 @@ async function loadNearby() {
 
     comerciosOriginales = listaConFavoritos;
     aplicarFiltros();
+    await refreshOptionalLayers();
   } catch (err) {
     console.error('❌ Error al cargar comercios cercanos:', err);
   } finally {
@@ -1143,6 +1104,7 @@ async function locateUser() {
     cargarMunicipiosFallback();
     return;
   }
+  previousPositionForHeading = null;
   if (geoWatchId !== null) {
     map._userMovedManually = false;
     siguiendoUsuario = true;
@@ -1161,15 +1123,21 @@ async function locateUser() {
   ultimaPosicion = null;
 
   // marca si el usuario tocó el mapa (para no re-centrar a la fuerza)
-  map._userMovedManually = false;
+  setMapFollowMode(true);
 
   // si el usuario mueve o hace zoom, pausamos seguimiento automático
   if (!mapInteractionsBound) {
-    map.on('dragstart zoomstart', (e) => {
-      // Solo desactivar seguimiento si fue una interacción del usuario
+    const desactivarSeguimientoPorInteraccion = (e) => {
       if (e && e.originalEvent) {
-        map._userMovedManually = true;
-        siguiendoUsuario = false;
+        setMapFollowMode(false);
+      }
+    };
+    map.on('movestart zoomstart', desactivarSeguimientoPorInteraccion);
+    map.on('dragstart', desactivarSeguimientoPorInteraccion);
+    map.on('zoomstart', desactivarSeguimientoPorInteraccion);
+    map.on('touchstart', (e) => {
+      if (e && e.originalEvent) {
+        setMapFollowMode(false);
       }
     });
     mapInteractionsBound = true;
@@ -1195,17 +1163,24 @@ async function locateUser() {
       // velocidad → mph
       const speed = pos.coords.speed || 0; // m/s
       const mph = speed * 2.23694;
+      const smoothMph = getSmoothedSpeedMph(mph);
 
       // distancia recorrida desde la última lectura
       const ahora = { lat: userLat, lon: userLon };
       const dist = ultimaPosicion ? getDistanceMeters(ultimaPosicion, ahora) : Infinity;
       ultimaPosicion = ahora;
 
-      // heading (grados) si está disponible
+      // heading (grados) si está disponible; si no, usar dirección de movimiento
       const headingRaw = pos.coords.heading;
       if (Number.isFinite(headingRaw)) {
-        userHeadingDeg = headingRaw;
+        userHeadingDeg = normalizeHeadingDeg(headingRaw);
+      } else if (previousPositionForHeading && dist >= 3) {
+        const movementBearing = getBearingDegrees(previousPositionForHeading, ahora);
+        if (Number.isFinite(movementBearing)) {
+          userHeadingDeg = movementBearing;
+        }
       }
+      previousPositionForHeading = ahora;
 
       // crea/mueve el pin del usuario
       if (userMarker) {
@@ -1229,11 +1204,13 @@ async function locateUser() {
       if (!map._firstFix) {
         map._firstFix = true;
         map.setView([userLat, userLon], 13, { animate: true });
+        previousPositionForHeading = ahora;
       } else {
         // 2) si aún no recorrió 3 m, no cambiamos el zoom (solo seguimos el pin)
         if (dist >= 3) {
           // 3) calcular zoom según velocidad
-          let zoomDeseado = (mph > 45) ? 13 : (mph >= 20 ? 15 : 20);
+          let zoomDeseado = getZoomForSpeedMph(smoothMph);
+          map._followZoomMode = zoomDeseado;
 
           // si el usuario acercó más, no lo alejamos
           const zActual = map.getZoom();
@@ -1255,12 +1232,8 @@ async function locateUser() {
       if (!map._comerciosCargados) {
         await loadNearby();
         map._comerciosCargados = true;
-      }
-
-      // elimina círculo de precisión si existiera
-      if (userAccuracyCircle) {
-        userAccuracyCircle.remove();
-        userAccuracyCircle = null;
+      } else if ($togglePlayas?.checked || $toggleLugares?.checked) {
+        await refreshOptionalLayers();
       }
 
       // debug
@@ -1298,26 +1271,25 @@ async function locateUser() {
       const btn = L.DomUtil.create('button', 'seguir-usuario-btn');
       btn.innerHTML = '<i class="fas fa-location-arrow"></i>';
       btn.title = 'Volver a centrar en tu ubicación';
-      btn.style.cssText = `
-        background: white;
-        border: none;
-        border-radius: 50%;
-        width: 44px;
-        height: 44px;
-        font-size: 18px;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      `;
+      followControlButton = btn;
+      updateFollowControlStyle();
+      btn.classList.add('hidden');
       btn.onclick = () => {
-        map._userMovedManually = false;
-        siguiendoUsuario = true;
+        setMapFollowMode(true);
         if (typeof userLat === 'number' && typeof userLon === 'number') {
+          const currentZoom = Number(map?.getZoom?.());
+          if (Number.isFinite(currentZoom)) {
+            map._followZoomMode = currentZoom;
+          }
           map.setView([userLat, userLon], Math.max(15, map.getZoom() || 13), { animate: true });
         }
       };
       return btn;
     };
     btnSeguir.addTo(map);
+    followControlButton = document.querySelector('.seguir-usuario-btn');
+    updateFollowControlStyle();
+    setMapFollowMode(siguiendoUsuario);
     followControlAdded = true;
   }
 }
@@ -1332,19 +1304,23 @@ async function locateUser() {
 
   $radio?.addEventListener('input', updateRadioLabel);
   $radio?.addEventListener('change', () => loadNearby());
-  $btnCentrarme?.addEventListener('click', locateUser);
-  $btnRecargar?.addEventListener('click', () => loadNearby());
   $btnFallbackApplyMunicipio?.addEventListener('click', () => applyFallbackMunicipio());
   $btnFallbackRetryGeo?.addEventListener('click', () => {
     stopGeoWatch();
     setGeoFallbackStatus(t('cerca.geoFallbackRetrying'), 'info');
+    speedSamplesMph = [];
+    previousPositionForHeading = null;
+    if (map) map._followZoomMode = 13;
     locateUser();
   });
   $btnToggleFiltros?.addEventListener('click', togglePanelFiltros);
   $filtroCategoria?.addEventListener('change', () => loadNearby());
+  $togglePlayas?.addEventListener('change', () => refreshOptionalLayers());
+  $toggleLugares?.addEventListener('change', () => refreshOptionalLayers());
   window.addEventListener('lang:changed', () => {
     cargarCategoriasDropdown();
     cargarMunicipiosFallback({ force: true });
+    refreshOptionalLayers();
   });
 
   if ($search) {
@@ -1354,7 +1330,7 @@ async function locateUser() {
     });
   }
 
-  [$filtroAbierto, $filtroActivos, $filtroFavoritos].forEach(toggle => {
+  [$filtroAbierto, $filtroFavoritos].forEach(toggle => {
     if (toggle === $filtroFavoritos) {
       toggle?.addEventListener('change', async (e) => {
         if (e.target.checked) {
@@ -1379,8 +1355,6 @@ async function locateUser() {
       toggle?.addEventListener('change', aplicarFiltros);
     }
   });
-
- // renderCategoryButtons();
 
   locateUser();
 })();

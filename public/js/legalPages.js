@@ -22,7 +22,7 @@ const LEGAL_CONTENT = {
             'Enviar notificaciones de cuenta',
             'Enviar códigos de verificación (OTP)',
             'Notificar actualizaciones y aprobaciones de comercios',
-            'Enviar mensajes promocionales opcionales (solo si diste consentimiento)',
+            'Enviar notificaciones transaccionales opcionales relacionadas con cuenta, OTP y actualizaciones',
             'Mejorar la experiencia del usuario',
           ],
         },
@@ -111,7 +111,7 @@ const LEGAL_CONTENT = {
             'Send account notifications',
             'Send verification codes (OTP)',
             'Notify business updates and approvals',
-            'Send optional promotional messages (only with consent)',
+            'Send only transactional notifications related to account, OTP, and updates',
             'Improve user experience',
           ],
         },
@@ -188,7 +188,7 @@ const LEGAL_CONTENT = {
       intro: 'Findixi（“我们”）尊重您的隐私，并致力于保护您的个人信息。',
       sections: [
         { title: '我们收集的信息', paragraphs: ['我们可能收集以下个人信息：'], bullets: ['姓名', '电子邮箱', '电话号码', '账户与注册信息', '提交到平台的商家信息'] },
-        { title: '我们如何使用信息', paragraphs: ['我们使用您的信息来：'], bullets: ['提供平台访问', '发送账户通知', '发送验证码（OTP）', '通知商家更新与审核', '发送可选促销信息（仅在您同意时）', '改进用户体验'] },
+        { title: '我们如何使用信息', paragraphs: ['我们使用您的信息来：'], bullets: ['提供平台访问', '发送账户通知', '发送验证码（OTP）', '通知商家更新与审核', '仅发送与账户、OTP 和更新相关的可选交易通知', '改进用户体验'] },
         { title: '短信通信', paragraphs: ['当您提供手机号并同意后，即表示同意接收 Findixi 短信。', '短信频率可能变化，可能产生短信与流量费用。', '回复 STOP 可退订，回复 HELP 可获得帮助。', '我们不会出售您的手机信息，仅会与为平台服务所需的服务商/运营商共享。'] },
         { title: '数据安全', paragraphs: ['我们采取合理的管理、技术和物理安全措施来保护您的信息。'] },
         { title: '第三方服务', paragraphs: ['Findixi 可能使用第三方服务商支持平台运行。这些服务商必须遵守保密与安全要求。'] },
@@ -248,7 +248,7 @@ const LEGAL_CONTENT = {
       intro: 'A Findixi ("nós") respeita sua privacidade e protege suas informações pessoais.',
       sections: [
         { title: 'Informações coletadas', paragraphs: ['Podemos coletar:'], bullets: ['Nome', 'E-mail', 'Telefone', 'Dados de conta e cadastro', 'Informações comerciais enviadas à plataforma'] },
-        { title: 'Como usamos suas informações', paragraphs: ['Usamos seus dados para:'], bullets: ['Dar acesso à plataforma', 'Enviar notificações da conta', 'Enviar códigos OTP', 'Notificar atualizações de comércios', 'Enviar promoções opcionais (com consentimento)', 'Melhorar a experiência do usuário'] },
+        { title: 'Como usamos suas informações', paragraphs: ['Usamos seus dados para:'], bullets: ['Dar acesso à plataforma', 'Enviar notificações da conta', 'Enviar códigos OTP', 'Notificar atualizações de comércios', 'Enviar apenas notificações transacionais opcionais relacionadas à conta, OTP e atualizações', 'Melhorar a experiência do usuário'] },
         { title: 'Comunicações por SMS', paragraphs: ['Ao informar seu telefone e aceitar, você concorda em receber SMS da Findixi.', 'A frequência pode variar. Tarifas de SMS/dados podem ser aplicadas.', 'Responda STOP para cancelar ou HELP para ajuda.', 'Não vendemos suas informações móveis. Compartilhamento apenas com provedores/operadoras necessários.'] },
         { title: 'Segurança de dados', paragraphs: ['Aplicamos medidas administrativas, técnicas e físicas razoáveis para proteger suas informações.'] },
         { title: 'Serviços de terceiros', paragraphs: ['A Findixi pode usar fornecedores terceirizados para operar a plataforma. Esses fornecedores devem manter confidencialidade e segurança.'] },
@@ -278,7 +278,7 @@ const LEGAL_CONTENT = {
       intro: 'Findixi („wir“) respektiert Ihre Privatsphäre und schützt Ihre personenbezogenen Daten.',
       sections: [
         { title: 'Welche Daten wir erheben', paragraphs: ['Wir können folgende Daten erfassen:'], bullets: ['Name', 'E-Mail-Adresse', 'Telefonnummer', 'Konto- und Registrierungsdaten', 'Geschäftsinformationen auf der Plattform'] },
-        { title: 'Wie wir Ihre Daten verwenden', paragraphs: ['Wir verwenden Ihre Daten, um:'], bullets: ['Zugang zur Plattform zu ermöglichen', 'Kontobenachrichtigungen zu senden', 'OTP-Codes zu senden', 'Geschäfts-Updates mitzuteilen', 'Optionale Werbenachrichten zu senden (mit Einwilligung)', 'Die Nutzererfahrung zu verbessern'] },
+        { title: 'Wie wir Ihre Daten verwenden', paragraphs: ['Wir verwenden Ihre Daten, um:'], bullets: ['Zugang zur Plattform zu ermöglichen', 'Kontobenachrichtigungen zu senden', 'OTP-Codes zu senden', 'Geschäfts-Updates mitzuteilen', 'Nur optionale transaktionale Benachrichtigungen zu Konto, OTP und Updates zu senden', 'Die Nutzererfahrung zu verbessern'] },
         { title: 'SMS-Kommunikation', paragraphs: ['Mit Angabe Ihrer Telefonnummer und Einwilligung stimmen Sie SMS von Findixi zu.', 'Die Häufigkeit kann variieren. Gebühren für SMS/Daten können anfallen.', 'Antworten Sie mit STOP zum Abmelden oder HELP für Hilfe.', 'Wir verkaufen keine mobilen Daten. Eine Weitergabe erfolgt nur an notwendige Dienstleister/Carrier.'] },
         { title: 'Datensicherheit', paragraphs: ['Wir setzen angemessene administrative, technische und physische Schutzmaßnahmen ein.'] },
         { title: 'Drittanbieter-Dienste', paragraphs: ['Findixi kann Drittanbieter zur Unterstützung der Plattform nutzen. Diese müssen Vertraulichkeit und Sicherheit einhalten.'] },
@@ -308,7 +308,7 @@ const LEGAL_CONTENT = {
       intro: 'Findixi (“noi”) rispetta la tua privacy e protegge i tuoi dati personali.',
       sections: [
         { title: 'Dati raccolti', paragraphs: ['Possiamo raccogliere:'], bullets: ['Nome', 'Email', 'Numero di telefono', 'Dati di account e registrazione', 'Informazioni commerciali inviate alla piattaforma'] },
-        { title: 'Come usiamo i dati', paragraphs: ['Usiamo i tuoi dati per:'], bullets: ['Fornire accesso alla piattaforma', 'Inviare notifiche account', 'Inviare codici OTP', 'Notificare aggiornamenti dei commerci', 'Inviare promozioni opzionali (con consenso)', 'Migliorare l’esperienza utente'] },
+        { title: 'Come usiamo i dati', paragraphs: ['Usiamo i tuoi dati per:'], bullets: ['Fornire accesso alla piattaforma', 'Inviare notifiche account', 'Inviare codici OTP', 'Notificare aggiornamenti dei commerci', 'Inviare solo notifiche transazionali opzionali relative ad account, OTP e aggiornamenti', 'Migliorare l’esperienza utente'] },
         { title: 'Comunicazioni SMS', paragraphs: ['Fornendo il numero e acconsentendo, accetti di ricevere SMS da Findixi.', 'La frequenza può variare. Possono applicarsi costi SMS/dati.', 'Rispondi STOP per annullare o HELP per assistenza.', 'Non vendiamo i tuoi dati mobili. Condivisione solo con fornitori/operatori necessari.'] },
         { title: 'Sicurezza dei dati', paragraphs: ['Adottiamo misure amministrative, tecniche e fisiche ragionevoli per proteggere i dati.'] },
         { title: 'Servizi di terze parti', paragraphs: ['Findixi può usare fornitori terzi per il funzionamento della piattaforma. Devono rispettare riservatezza e sicurezza.'] },
@@ -338,7 +338,7 @@ const LEGAL_CONTENT = {
       intro: 'Findixi("당사")는 귀하의 개인정보를 존중하며 보호하기 위해 노력합니다.',
       sections: [
         { title: '수집하는 정보', paragraphs: ['당사는 다음 정보를 수집할 수 있습니다:'], bullets: ['이름', '이메일', '전화번호', '계정/가입 정보', '플랫폼에 제출된 비즈니스 정보'] },
-        { title: '정보 이용 목적', paragraphs: ['수집한 정보는 다음 목적으로 사용됩니다:'], bullets: ['플랫폼 접근 제공', '계정 알림 발송', 'OTP 인증코드 발송', '비즈니스 업데이트/승인 안내', '선택적 프로모션 발송(동의 시)', '사용자 경험 개선'] },
+        { title: '정보 이용 목적', paragraphs: ['수집한 정보는 다음 목적으로 사용됩니다:'], bullets: ['플랫폼 접근 제공', '계정 알림 발송', 'OTP 인증코드 발송', '비즈니스 업데이트/승인 안내', '계정, OTP 및 업데이트와 관련된 선택적 거래 알림 발송', '사용자 경험 개선'] },
         { title: 'SMS 통신', paragraphs: ['전화번호 제공 및 동의 시 Findixi SMS 수신에 동의하게 됩니다.', '메시지 빈도는 달라질 수 있으며 통신요금이 발생할 수 있습니다.', '수신 거부는 STOP, 도움말은 HELP를 보내세요.', '모바일 정보는 판매하지 않으며, 운영에 필요한 제공업체/통신사와만 공유합니다.'] },
         { title: '데이터 보안', paragraphs: ['당사는 합리적인 관리적, 기술적, 물리적 보호조치를 시행합니다.'] },
         { title: '제3자 서비스', paragraphs: ['플랫폼 운영을 위해 제3자 서비스를 사용할 수 있으며, 해당 제공업체는 기밀성과 보안을 준수해야 합니다.'] },
@@ -368,7 +368,7 @@ const LEGAL_CONTENT = {
       intro: 'Findixi（「当社」）は、利用者のプライバシーを尊重し、個人情報の保護に努めます。',
       sections: [
         { title: '収集する情報', paragraphs: ['当社は次の情報を収集する場合があります。'], bullets: ['氏名', 'メールアドレス', '電話番号', 'アカウント/登録情報', 'プラットフォームに送信された事業者情報'] },
-        { title: '情報の利用目的', paragraphs: ['収集した情報は次の目的で利用します。'], bullets: ['プラットフォームへのアクセス提供', 'アカウント通知の送信', 'OTP認証コードの送信', '事業者更新/承認の通知', '任意のプロモーション配信（同意時）', 'ユーザー体験の改善'] },
+        { title: '情報の利用目的', paragraphs: ['収集した情報は次の目的で利用します。'], bullets: ['プラットフォームへのアクセス提供', 'アカウント通知の送信', 'OTP認証コードの送信', '事業者更新/承認の通知', 'アカウント、OTP、更新に関する任意の取引通知のみ送信', 'ユーザー体験の改善'] },
         { title: 'SMS連絡', paragraphs: ['電話番号提供と同意により、FindixiからのSMS受信に同意したものとみなされます。', '配信頻度は変動する場合があり、通信料が発生することがあります。', '配信停止はSTOP、サポートはHELPと返信してください。', 'モバイル情報は販売しません。運用に必要な提供事業者/通信事業者とのみ共有します。'] },
         { title: 'データセキュリティ', paragraphs: ['当社は合理的な管理的・技術的・物理的対策を講じます。'] },
         { title: '第三者サービス', paragraphs: ['Findixiはプラットフォーム運用のため第三者サービスを利用する場合があります。これらの提供者は機密性と安全性を維持する必要があります。'] },

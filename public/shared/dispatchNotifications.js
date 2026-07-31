@@ -10,7 +10,7 @@ function getEndpoints() {
   const list = ['/.netlify/functions/dispatch_notifications'];
   const host = String(window?.location?.hostname || '').toLowerCase();
   if (host === '127.0.0.1' || host === 'localhost') {
-    list.push('https://test.enpe-erre.com/.netlify/functions/dispatch_notifications');
+    list.push('https://test.findixi.com/.netlify/functions/dispatch_notifications');
   }
   return list;
 }

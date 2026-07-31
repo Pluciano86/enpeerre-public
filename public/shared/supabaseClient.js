@@ -53,6 +53,18 @@ function isLikelyNetlifyDevRuntime() {
   return port === '8888' || port === '8889';
 }
 
+function getAuthClientOptions() {
+  if (isLocalHostRuntime() && !isLikelyNetlifyDevRuntime()) {
+    // En Live Server/local static preview evitamos refresh automático para no disparar CORS
+    // con sesiones viejas guardadas en el navegador.
+    return {
+      autoRefreshToken: false,
+    };
+  }
+
+  return {};
+}
+
 async function fetchRuntimeSupabaseConfig() {
   if (typeof window === 'undefined' || typeof fetch !== 'function') {
     return { url: '', key: '' };
@@ -135,7 +147,9 @@ const localRuntimeConfig = readLocalRuntimeConfig();
 
 export let SUPABASE_URL = envUrl || localRuntimeConfig.url || FALLBACK_URL;
 export let SUPABASE_ANON_KEY = envKey || localRuntimeConfig.key || FALLBACK_KEY;
-export let supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export let supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: getAuthClientOptions(),
+});
 
 const hasLocalRuntimeConfig = Boolean(localRuntimeConfig.url && localRuntimeConfig.key);
 const shouldTryRuntimeFetch =
@@ -161,7 +175,9 @@ if (shouldTryRuntimeFetch) {
 
       SUPABASE_URL = runtimeConfig.url;
       SUPABASE_ANON_KEY = runtimeConfig.key;
-      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: getAuthClientOptions(),
+      });
     })
     .catch(() => {
       if (typeof console !== 'undefined') {

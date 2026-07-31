@@ -1,9 +1,5 @@
 import { supabase } from '../shared/supabaseClient.js';
 import { PLANES_PRELIMINARES, formatoPrecio, obtenerPlanPorNivel } from '../shared/planes.js';
-import {
-  COMERCIO_LOGIN_BASE_URL,
-  getComercioLoginHostLabel as getComercioLoginHostLabelFromConfig,
-} from '../shared/runtimeConfig.js';
 
 const planesGrid = document.getElementById('planesGrid');
 const planLabel = document.getElementById('planActualLabel');
@@ -108,8 +104,14 @@ const MATCH_STRONG_DISTANCE_M = 150;
 const MATCH_MEDIUM_DISTANCE_M = 400;
 const PIN_MOVE_ALLOW_NEW_M = 250;
 const DUPLICATE_DISTANCE_M = 200;
+const COMERCIO_LOGIN_BASE_URL =
+  String(window.FINDIXI_COMERCIO_LOGIN_BASE_URL || 'https://comercio.findixi.com').trim() ||
+  'https://comercio.findixi.com';
+const OTP_TEST_MODE_STORAGE_KEY = 'findixiOtpTestMode';
+const OTP_TEST_PHONE_STORAGE_KEY = 'findixiOtpTestPhone';
+const AUTHORIZED_OTP_TEST_PHONE = '+17873292399';
+
 let selectedNivel = null;
-let planesCatalogo = [...PLANES_PRELIMINARES];
 let mapPickerInstance = null;
 let mapPickerMarker = null;
 let mapAutocomplete = null;
@@ -140,99 +142,11 @@ let brandingState = {
   logoOffer: null,
   idComercio: null,
 };
-const claimContextFromUrl = getClaimContextFromUrl();
 
 function toFiniteNumber(value) {
   if (value === '' || value === null || value === undefined) return null;
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
-}
-
-function getClaimContextFromUrl() {
-  if (typeof window === 'undefined') return null;
-
-  const params = new URLSearchParams(window.location.search || '');
-  const claim = params.get('claim') === '1';
-  const source = String(params.get('source') || '').trim().toLowerCase();
-  const comercioId = toFiniteNumber(params.get('comercioId'));
-
-  if (!claim && source !== 'noactivo_card' && !Number.isFinite(comercioId)) {
-    return null;
-  }
-
-  return {
-    claim,
-    source,
-    comercioId: Number.isFinite(comercioId) ? comercioId : null,
-    nombre: String(params.get('nombre') || '').trim(),
-    municipio: String(params.get('municipio') || '').trim(),
-    idMunicipio: toFiniteNumber(params.get('idMunicipio')),
-    latitud: toFiniteNumber(params.get('lat')),
-    longitud: toFiniteNumber(params.get('lon')),
-    placeId: String(params.get('placeId') || '').trim(),
-    telefono: String(params.get('telefono') || '').trim(),
-    direccion: String(params.get('direccion') || '').trim(),
-    portada: String(params.get('portada') || '').trim(),
-    logo: String(params.get('logo') || '').trim(),
-  };
-}
-
-function seleccionarMunicipioPorNombre(municipioNombre = '') {
-  if (!selectMunicipio || !municipioNombre) return false;
-  const target = normalizeText(municipioNombre);
-  if (!target) return false;
-
-  const options = Array.from(selectMunicipio.options || []);
-  const found = options.find((option) => normalizeText(option.textContent || '') === target);
-  if (!found) return false;
-
-  selectMunicipio.value = found.value;
-  return true;
-}
-
-async function hidratarClaimContext(context) {
-  return context;
-}
-
-function aplicarClaimContextEnFormulario(context) {
-  if (!context) return;
-
-  if (inputNombreComercio && context.nombre) {
-    inputNombreComercio.value = context.nombre;
-  }
-
-  if (inputLatitud && Number.isFinite(context.latitud)) {
-    inputLatitud.value = String(context.latitud);
-  }
-
-  if (inputLongitud && Number.isFinite(context.longitud)) {
-    inputLongitud.value = String(context.longitud);
-  }
-
-  const idMunicipio = toFiniteNumber(context.idMunicipio);
-  if (selectMunicipio) {
-    if (Number.isFinite(idMunicipio)) {
-      selectMunicipio.value = String(idMunicipio);
-    }
-    if (!selectMunicipio.value && context.municipio) {
-      seleccionarMunicipioPorNombre(context.municipio);
-    }
-  }
-
-  if (context.placeId) {
-    window.findixiRegistroClaimPlaceId = context.placeId;
-  }
-}
-
-async function aplicarPrefillClaimDesdeUrl() {
-  if (!claimContextFromUrl) return;
-
-  const context = await hidratarClaimContext(claimContextFromUrl);
-  aplicarClaimContextEnFormulario(context);
-
-  if (context && context.nombre) {
-    window.findixiRegistroClaimPrefill = context;
-  }
 }
 
 function normalizeText(value) {
@@ -1013,7 +927,16 @@ function showOtpVerifiedSummary(nombreComercio) {
 }
 
 function getComercioLoginHostLabel() {
-  return getComercioLoginHostLabelFromConfig();
+  const hostname = String(window.location.hostname || '').toLowerCase();
+  if (['localhost', '127.0.0.1', '::1'].includes(hostname)) {
+    return `${window.location.host}/comercio/login.html`;
+  }
+  try {
+    const configured = new URL(COMERCIO_LOGIN_BASE_URL);
+    return configured.host || 'comercio.findixi.com';
+  } catch (_error) {
+    return 'comercio.findixi.com';
+  }
 }
 
 function buildComercioLoginUrl(idComercio) {
@@ -1026,8 +949,8 @@ function buildComercioLoginUrl(idComercio) {
   const hostname = String(window.location.hostname || '').toLowerCase();
 
   if (['localhost', '127.0.0.1', '::1'].includes(hostname)) {
-    const returnTo = `/editarPerfilComercio.html?${query.toString()}`;
-    const loginUrl = new URL('/login.html', window.location.origin);
+    const returnTo = `/comercio/editarPerfilComercio.html?${query.toString()}`;
+    const loginUrl = new URL('/comercio/login.html', window.location.origin);
     loginUrl.searchParams.set('returnTo', returnTo);
     return loginUrl.toString();
   }
@@ -1071,7 +994,7 @@ function resetOtpState({ clearSession = true } = {}) {
   if (clearSession) clearOtpSessionState();
   if (btnOtpResend) {
     btnOtpResend.disabled = true;
-    btnOtpResend.textContent = 'Reenviar';
+    btnOtpResend.textContent = 'Reenviar SMS';
   }
 }
 
@@ -1176,7 +1099,7 @@ function startOtpCooldown(seconds) {
     if (!btnOtpResend) return;
     if (otpState.cooldownSeconds <= 0) {
       btnOtpResend.disabled = false;
-      btnOtpResend.textContent = 'Reenviar';
+      btnOtpResend.textContent = 'Reenviar SMS';
       if (otpState.timerId) {
         clearInterval(otpState.timerId);
         otpState.timerId = null;
@@ -1185,7 +1108,7 @@ function startOtpCooldown(seconds) {
       return;
     }
     btnOtpResend.disabled = true;
-    btnOtpResend.textContent = `Reenviar (${otpState.cooldownSeconds}s)`;
+    btnOtpResend.textContent = `Reenviar SMS (${otpState.cooldownSeconds}s)`;
     otpState.cooldownSeconds -= 1;
     persistOtpState();
   };
@@ -1209,10 +1132,18 @@ function applyOtpSendResult(data) {
 
   const channelText = otpState.channelUsed === 'voice' ? 'llamada de voz' : 'SMS';
   if (otpIntroText) {
-    otpIntroText.textContent = `Enviamos un código por ${channelText} al teléfono ${otpState.maskedDestination || 'registrado'}.`;
+    otpIntroText.textContent = isOtpTestMode()
+      ? `Modo prueba: enviamos un código por ${channelText} al teléfono ${otpState.maskedDestination || 'registrado'}.`
+      : `Enviamos un código por ${channelText} al teléfono ${otpState.maskedDestination || 'registrado'}.`;
   }
   if (otpMetaText) {
     otpMetaText.textContent = `Código expira en ${Math.max(1, Math.round((otpState.expiresIn || 600) / 60))} minutos.`;
+    if (data?.mock_code) {
+      otpMetaText.textContent += ` Código de prueba: ${data.mock_code}.`;
+    }
+    if (data?.fallback_from_sms && otpState.channelUsed === 'voice') {
+      otpMetaText.textContent += ' El SMS no pudo usarse; se activó llamada de voz como respaldo.';
+    }
   }
   startOtpCooldown(Number(data.cooldown_seconds || 0));
   persistOtpState();
@@ -1853,7 +1784,11 @@ async function iniciarOtpParaComercio({
   });
   applyOtpSendResult(otpResponse);
   googleMatchConfirmBox?.classList.add('hidden');
-  setOtpFeedback('info', `Código enviado por ${otpResponse.channel_used === 'voice' ? 'llamada' : 'SMS'}.`);
+  if (otpResponse?.fallback_from_sms && otpResponse?.channel_used === 'voice') {
+    setOtpFeedback('warning', 'No fue posible usar SMS por ahora; se envió el código por llamada de voz.');
+  } else {
+    setOtpFeedback('info', `Código enviado por ${otpResponse.channel_used === 'voice' ? 'llamada' : 'SMS'}.`);
+  }
 }
 
 function getMunicipioLabel() {
@@ -1897,59 +1832,6 @@ function buildFeaturesList(features) {
       ${list.map((f) => `<li class="flex items-start gap-2"><span class="text-emerald-500 mt-[3px]">●</span>${f}</li>`).join('')}
     </ul>
   `;
-}
-
-function normalizeDisponibilidadPlan(value) {
-  const raw = String(value || 'disponible').trim().toLowerCase();
-  if (raw === 'no_disponible') return 'no_disponible';
-  if (raw === 'proximamente') return 'proximamente';
-  return 'disponible';
-}
-
-function getPrecioPlanDisplay(plan, base) {
-  const precioBase = Number(plan.precio ?? base.precio ?? 0) || 0;
-  const ofertaActiva = plan.oferta_activa === true;
-  const ofertaTipo =
-    String(plan.oferta_tipo || '').trim() === 'gratis_limitado' || plan.oferta_gratis === true
-      ? 'gratis_limitado'
-      : 'precio_especial';
-  const precioOferta = Number(plan.precio_oferta);
-
-  if (!ofertaActiva) {
-    return {
-      isGratis: precioBase <= 0,
-      precioHtml: `<p class="text-3xl font-semibold">${formatoPrecio(precioBase)}</p>`,
-      metaHtml: precioBase <= 0 ? '' : '<p class="text-[11px] uppercase tracking-[0.2em] text-gray-400">Plan mensual</p>',
-    };
-  }
-
-  if (ofertaTipo === 'gratis_limitado') {
-    return {
-      isGratis: true,
-      precioHtml: `
-        <p class="text-sm text-gray-400 line-through">${formatoPrecio(precioBase)}</p>
-        <p class="text-3xl font-semibold text-emerald-600">GRATIS</p>
-      `,
-      metaHtml: '<p class="text-[11px] uppercase tracking-[0.2em] text-emerald-600">Por tiempo limitado</p>',
-    };
-  }
-
-  if (Number.isFinite(precioOferta)) {
-    return {
-      isGratis: precioOferta <= 0,
-      precioHtml: `
-        <p class="text-sm text-gray-400 line-through">${formatoPrecio(precioBase)}</p>
-        <p class="text-3xl font-semibold text-amber-600">${formatoPrecio(precioOferta)}</p>
-      `,
-      metaHtml: '<p class="text-[11px] uppercase tracking-[0.2em] text-amber-600">Oferta especial</p>',
-    };
-  }
-
-  return {
-    isGratis: precioBase <= 0,
-    precioHtml: `<p class="text-3xl font-semibold">${formatoPrecio(precioBase)}</p>`,
-    metaHtml: precioBase <= 0 ? '' : '<p class="text-[11px] uppercase tracking-[0.2em] text-gray-400">Plan mensual</p>',
-  };
 }
 
 const PLAN_COPY = {
@@ -2006,27 +1888,18 @@ function createPlanCard(plan, selectedPlanNivel) {
   const nivel = Number(plan.nivel ?? plan.plan_nivel ?? 0);
   const base = obtenerPlanPorNivel(nivel);
   const nombre = plan.nombre || base.nombre;
+  const isGratis = Number(plan.precio ?? base.precio) <= 0;
+  const precio = formatoPrecio(plan.precio ?? base.precio);
   const features = Array.isArray(plan.features) ? plan.features : base.features;
   const isSelected = Number(selectedPlanNivel) === Number(nivel);
   const slug = plan.slug || base.slug || '';
   const copy = PLAN_COPY[slug] || PLAN_COPY.basic;
   const tone = TONE_CLASSES[copy.tone] || TONE_CLASSES.gray;
-  const disponibilidad = normalizeDisponibilidadPlan(plan.disponibilidad || plan.estado_disponibilidad || 'disponible');
-  const bloqueado = disponibilidad === 'no_disponible' || disponibilidad === 'proximamente';
-  const priceDisplay = getPrecioPlanDisplay(plan, base);
-  const stateBadge = disponibilidad === 'proximamente'
-    ? '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Próximamente disponible</span>'
-    : disponibilidad === 'no_disponible'
-      ? '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">No disponible</span>'
-      : '';
-  const stateNote = disponibilidad === 'proximamente'
-    ? '<p class="text-xs text-amber-700 font-semibold">No disponible por el momento</p>'
-    : '';
 
   const card = document.createElement('button');
   card.type = 'button';
   card.className = `text-center border rounded-3xl p-5 transition shadow-md ${tone.card} ${
-    isSelected ? 'ring-2 ring-gray-900/15' : bloqueado ? 'opacity-90 cursor-not-allowed' : 'hover:border-gray-400'
+    isSelected ? 'ring-2 ring-gray-900/15' : 'hover:border-gray-400'
   }`;
   card.innerHTML = `
     <div class="flex flex-col items-center gap-2">
@@ -2035,25 +1908,16 @@ function createPlanCard(plan, selectedPlanNivel) {
       </span>
       <h3 class="text-xl font-semibold text-gray-900">${nombre}</h3>
       <p class="text-base text-gray-700">${copy.tagline}</p>
-      <div class="${tone.price}">
-        ${priceDisplay.precioHtml}
-      </div>
-      ${priceDisplay.metaHtml}
-      ${stateBadge}
-      ${stateNote}
+      <p class="text-3xl font-semibold ${tone.price}">${precio}</p>
+      ${isGratis ? '' : '<p class="text-[11px] uppercase tracking-[0.2em] text-gray-400">Plan mensual</p>'}
     </div>
     ${buildFeaturesList(features)}
     <p class="text-sm text-gray-700 mt-3 text-center">${copy.desc}</p>
   `;
 
-  if (bloqueado) {
-    card.disabled = true;
-    card.setAttribute('aria-disabled', 'true');
-  } else {
-    card.addEventListener('click', () => {
-      selectPlan(plan);
-    });
-  }
+  card.addEventListener('click', () => {
+    selectPlan(plan);
+  });
 
   return card;
 }
@@ -2061,32 +1925,9 @@ function createPlanCard(plan, selectedPlanNivel) {
 function renderPlanes(selectedPlanNivel = null) {
   if (!planesGrid) return;
   planesGrid.innerHTML = '';
-  planesCatalogo.forEach((plan) => {
+  PLANES_PRELIMINARES.forEach((plan) => {
     planesGrid.appendChild(createPlanCard(plan, selectedPlanNivel));
   });
-}
-
-async function cargarPlanesCatalogo() {
-  try {
-    const { data, error } = await supabase
-      .from('planes')
-      .select('*')
-      .order('orden', { ascending: true });
-    if (error) throw error;
-    if (Array.isArray(data) && data.length) {
-      const visibles = data.filter((plan) => {
-        const disponibilidad = normalizeDisponibilidadPlan(
-          plan.disponibilidad || plan.estado_disponibilidad || 'disponible'
-        );
-        return plan.activo === true || disponibilidad === 'proximamente';
-      });
-      planesCatalogo = visibles.length ? visibles : [...PLANES_PRELIMINARES];
-      return;
-    }
-  } catch (error) {
-    console.warn('No se pudieron cargar planes desde Supabase:', error?.message || error);
-  }
-  planesCatalogo = [...PLANES_PRELIMINARES];
 }
 
 function openFormModal() {
@@ -2112,16 +1953,6 @@ function selectPlan(plan) {
   if (!authState.loggedIn) {
     loginModal?.classList.remove('hidden');
     loginModal?.classList.add('flex');
-    return;
-  }
-
-  const disponibilidad = normalizeDisponibilidadPlan(plan.disponibilidad || plan.estado_disponibilidad || 'disponible');
-  if (disponibilidad === 'proximamente') {
-    showFeedback('info', 'Este paquete estará disponible próximamente.');
-    return;
-  }
-  if (disponibilidad === 'no_disponible') {
-    showFeedback('warning', 'Este paquete no está disponible en este momento.');
     return;
   }
 
@@ -2193,10 +2024,7 @@ function getGoogleMapsKeyFromWindow() {
     browserEnv.GOOGLE_MAPS_API_KEY ||
     browserEnv.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
     browserEnv.VITE_GOOGLE_MAPS_API_KEY;
-  const key = typeof fromWindow === 'string' ? fromWindow.trim() : '';
-  if (!key) return '';
-  if (/REEMPLAZA_AQUI_TU_KEY_LOCAL/i.test(key)) return '';
-  return key;
+  return typeof fromWindow === 'string' ? fromWindow.trim() : '';
 }
 
 function isLocalHostRuntime() {
@@ -2210,25 +2038,20 @@ function isLikelyNetlifyDevRuntime() {
 }
 
 async function tryLoadLocalMapsConfig() {
-  try {
-    await import('../shared/localMapsConfig.js');
-    const keyFromModule = getGoogleMapsKeyFromWindow();
-    if (keyFromModule) {
-      googleMapsApiKeyCache = keyFromModule;
-      return keyFromModule;
-    }
-  } catch (_error) {
-    // localMapsConfig.js is optional in development
-  }
-
   const keyFromStorage = String(localStorage.getItem('GOOGLE_MAPS_BROWSER_KEY') || '').trim();
-  if (/REEMPLAZA_AQUI_TU_KEY_LOCAL/i.test(keyFromStorage)) return '';
   if (keyFromStorage) {
     window.__ENV__ = window.__ENV__ || {};
     window.__ENV__.GOOGLE_MAPS_BROWSER_KEY = keyFromStorage;
     return keyFromStorage;
   }
-  return '';
+
+  try {
+    await import('../shared/localMapsConfig.js');
+  } catch (error) {
+    return '';
+  }
+
+  return getGoogleMapsKeyFromWindow();
 }
 
 async function fetchMapsKeyFromEndpoint(url) {
@@ -2809,14 +2632,216 @@ function toggleMapPickerPanel(forceOpen = null) {
     });
 }
 
+function isLiveServerMockOtpEnv() {
+  const forceMock = String(window.FINDIXI_OTP_FORCE_MOCK || '').toLowerCase();
+  return ['1', 'true', 'yes', 'mock'].includes(forceMock);
+}
+
+function isAuthorizedOtpTestHost() {
+  const host = String(window.location.hostname || '').toLowerCase();
+  return (
+    ['localhost', '127.0.0.1', '::1', 'test.findixi.com'].includes(host) ||
+    host.endsWith('--test-findixi.netlify.app')
+  );
+}
+
+function isOtpTestMode() {
+  if (!isAuthorizedOtpTestHost()) return false;
+
+  try {
+    const stored = window.localStorage.getItem(OTP_TEST_MODE_STORAGE_KEY);
+    if (stored !== null) {
+      const normalized = String(stored).toLowerCase();
+      return ['1', 'true', 'yes', 'on', 'test'].includes(normalized);
+    }
+  } catch (_error) {
+    // Fall back to the bootstrap value below.
+  }
+
+  const testMode = String(window.FINDIXI_OTP_TEST_MODE || '').toLowerCase();
+  if (['1', 'true', 'yes', 'test'].includes(testMode)) return true;
+  if (['0', 'false', 'no', 'off'].includes(testMode)) return false;
+  return true;
+}
+
+function getOtpTestDestinationPhone() {
+  const approvedPhone = normalizePhoneForMockOtp(window.FINDIXI_OTP_TEST_PHONE || AUTHORIZED_OTP_TEST_PHONE);
+  if (approvedPhone === normalizePhoneForMockOtp(AUTHORIZED_OTP_TEST_PHONE)) {
+    return approvedPhone;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(OTP_TEST_PHONE_STORAGE_KEY);
+    const normalizedStored = normalizePhoneForMockOtp(stored);
+    if (normalizedStored === normalizePhoneForMockOtp(AUTHORIZED_OTP_TEST_PHONE)) {
+      return normalizedStored;
+    }
+  } catch (_error) {
+    // Use the bootstrap value below when localStorage is not available.
+  }
+
+  return normalizePhoneForMockOtp(AUTHORIZED_OTP_TEST_PHONE);
+}
+
+function buildOtpFunctionEndpoints(primaryPath, fallbackPath) {
+  const endpoints = [];
+  const hostname = String(window.location.hostname || '').toLowerCase();
+  const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(hostname);
+  const configuredBase = String(window.FINDIXI_FUNCTIONS_BASE_URL || '').trim().replace(/\/+$/, '');
+  const defaultRemoteBase = isLocalHost && isOtpTestMode() ? 'https://test.findixi.com' : '';
+  const customBase = configuredBase || defaultRemoteBase;
+  if (customBase) {
+    endpoints.push(`${customBase}${primaryPath}`);
+    endpoints.push(`${customBase}${fallbackPath}`);
+  }
+
+  endpoints.push(primaryPath);
+  endpoints.push(fallbackPath);
+
+  if (isLocalHost && String(window.location.port || '') !== '8888') {
+    endpoints.push(`http://localhost:8888${primaryPath}`);
+    endpoints.push(`http://localhost:8888${fallbackPath}`);
+  }
+
+  return [...new Set(endpoints)];
+}
+
+function normalizePhoneForMockOtp(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const digits = text.replace(/\D/g, '');
+  if (digits.length === 10) return '+1' + digits;
+  if (digits.length === 11 && digits.startsWith('1')) return '+' + digits;
+  if (text.startsWith('+')) return text;
+  return text;
+}
+
+function readMockOtpState() {
+  const raw = sessionStorage.getItem('findixiRegistroOtpMockState');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.challenge_id) return null;
+    return parsed;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writeMockOtpState(state) {
+  sessionStorage.setItem('findixiRegistroOtpMockState', JSON.stringify(state));
+}
+
+function clearMockOtpState() {
+  sessionStorage.removeItem('findixiRegistroOtpMockState');
+}
+
+function buildMockOtpMaskedDestination(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length < 4) return 'registrado';
+  return '***-***-' + digits.slice(-4);
+}
+
+function generateMockOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function resolveMockOtpEndpoint(pathOrPaths, payload) {
+  const paths = Array.isArray(pathOrPaths) ? pathOrPaths : [pathOrPaths];
+  const requestedPath = String(paths[0] || '');
+  const isSend = requestedPath.includes('send_otp') || requestedPath.includes('otp-send') || requestedPath.includes('resend_otp') || requestedPath.includes('otp-resend');
+  const isVerify = requestedPath.includes('verify_otp') || requestedPath.includes('otp-verify');
+
+  if (!isSend && !isVerify) {
+    return null;
+  }
+
+  if (isSend) {
+    const challengeId = 'mock_' + Date.now();
+    const code = generateMockOtpCode();
+    const channelPreference = String(payload?.channel_preference || 'auto').toLowerCase();
+    const channelUsed = channelPreference === 'voice' ? 'voice' : 'sms';
+    const destinationPhone = normalizePhoneForMockOtp(payload?.destination_phone || (typeof getAuthUserPhone === 'function' ? getAuthUserPhone() : ''));
+    const mockState = {
+      challenge_id: challengeId,
+      code,
+      channel_used: channelUsed,
+      destination_masked: buildMockOtpMaskedDestination(destinationPhone),
+      expires_in: 600,
+      cooldown_seconds: 30,
+      idComercio: Number(payload?.idComercio || otpState.idComercio || 0) || null,
+      purpose: payload?.purpose || 'owner_verification',
+      created_at: new Date().toISOString(),
+      destination_phone: destinationPhone || null,
+    };
+    writeMockOtpState(mockState);
+    console.info('[OTP][MOCK][SEND]', mockState);
+    return {
+      ok: true,
+      challenge_id: mockState.challenge_id,
+      expires_in: mockState.expires_in,
+      cooldown_seconds: mockState.cooldown_seconds,
+      channel_used: mockState.channel_used,
+      destination_masked: mockState.destination_masked,
+      metodo_verificacion: 'mock',
+      mock_code: code,
+    };
+  }
+
+  if (isVerify) {
+    const mockState = readMockOtpState();
+    const submittedCode = String(payload?.code || '').replace(/\D/g, '').slice(0, 6);
+    if (!mockState?.challenge_id) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'No hay OTP mock activo.',
+        code: 'mock_missing_challenge',
+      };
+    }
+    if (submittedCode !== String(mockState.code || '')) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Código incorrecto.',
+        attempts_left: 4,
+        code: 'mock_invalid_code',
+      };
+    }
+    clearMockOtpState();
+    console.info('[OTP][MOCK][VERIFY]', mockState);
+    return {
+      ok: true,
+      metodo_verificacion: 'mock',
+      challenge_id: mockState.challenge_id,
+      code_verified: true,
+    };
+  }
+
+  return null;
+}
+
 async function getAccessToken() {
   const {
     data: { session } = {},
   } = await supabase.auth.getSession();
-  return session?.access_token || '';
+  return session?.access_token || "";
 }
 
 async function callOtpEndpoint(pathOrPaths, payload) {
+  if (isLiveServerMockOtpEnv()) {
+    const mockResponse = await resolveMockOtpEndpoint(pathOrPaths, payload);
+    if (mockResponse) {
+      if (mockResponse.ok === false) {
+        const error = new Error(mockResponse.error || 'No se pudo completar la operación OTP.');
+        error.payload = mockResponse;
+        error.status = mockResponse.status || 400;
+        throw error;
+      }
+      return mockResponse;
+    }
+  }
+
   const token = await getAccessToken();
   if (!token) {
     throw new Error('Sesión expirada. Inicia sesión nuevamente.');
@@ -2826,26 +2851,35 @@ async function callOtpEndpoint(pathOrPaths, payload) {
   let lastError = null;
 
   for (const path of paths) {
-    const response = await fetch(path, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify(payload),
+      });
 
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) return data;
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) return data;
 
-    const msg = data?.error || `OTP endpoint error ${response.status}`;
-    const error = new Error(msg);
-    error.payload = data;
-    error.status = response.status;
-    lastError = error;
+      const msg = data?.error || ("OTP endpoint error " + response.status);
+      const error = new Error(msg);
+      error.payload = data;
+      error.status = response.status;
+      lastError = error;
 
-    if (response.status !== 404) {
+      if (response.status === 405 || response.status === 404) {
+        continue;
+      }
+
       throw error;
+    } catch (error) {
+      lastError = error;
+      if (path !== paths[paths.length - 1]) {
+        continue;
+      }
     }
   }
 
@@ -2856,6 +2890,9 @@ function humanizeOtpError(error) {
   const status = Number(error?.status || 0);
   const code = error?.payload?.code || '';
   const attemptsLeft = error?.payload?.attempts_left;
+  if (code === 'invalid_phone_e164') {
+    return 'El teléfono debe estar en formato E.164.';
+  }
   if (status === 400 && Number.isFinite(Number(attemptsLeft))) {
     return `Código incorrecto. Intentos restantes: ${attemptsLeft}.`;
   }
@@ -2869,6 +2906,18 @@ function humanizeOtpError(error) {
     const secs = error?.payload?.cooldown_seconds || 0;
     return `Debes esperar ${secs}s antes de reenviar el código.`;
   }
+  if (code === 'telnyx_10dlc_pending') {
+    return 'SMS bloqueado por revisión 10DLC pendiente. Usa llamada de voz mientras la campaña queda activa.';
+  }
+  if (code === 'telnyx_carrier_error') {
+    return 'El carrier no aceptó el SMS. Prueba llamada de voz o vuelve a intentar más tarde.';
+  }
+  if (code === 'telnyx_voice_error') {
+    return 'No se pudo completar la llamada de voz. Intenta nuevamente.';
+  }
+  if (code === 'telnyx_sms_error') {
+    return 'No se pudo enviar el SMS por Telnyx. Intenta llamada de voz o reintenta luego.';
+  }
   if (code?.startsWith('rate_limit_')) {
     return 'Llegaste al límite de intentos OTP. Espera antes de intentar otra vez.';
   }
@@ -2881,14 +2930,37 @@ async function sendOtp({ channelPreference = 'auto', resend = false, destination
   }
 
   const endpoint = resend
-    ? ['/.netlify/functions/resend_otp', '/.netlify/functions/otp-resend']
-    : ['/.netlify/functions/send_otp', '/.netlify/functions/otp-send'];
+    ? buildOtpFunctionEndpoints('/.netlify/functions/resend_otp', '/.netlify/functions/otp-resend')
+    : buildOtpFunctionEndpoints('/.netlify/functions/send_otp', '/.netlify/functions/otp-send');
+  const resolvedDestinationPhone = isOtpTestMode()
+    ? getOtpTestDestinationPhone()
+    : destinationPhone;
   const payload = {
     idComercio: otpState.idComercio,
     purpose: 'owner_verification',
     channel_preference: channelPreference,
-    destination_phone: destinationPhone || undefined,
+    destination_phone: resolvedDestinationPhone || undefined,
   };
+
+  if (isOtpTestMode() && resolvedDestinationPhone) {
+    console.info('[OTP][TEST_MODE]', {
+      idComercio: otpState.idComercio,
+      channelPreference,
+      resend,
+      destinationPhone: resolvedDestinationPhone,
+    });
+  }
+
+  if (isLiveServerMockOtpEnv()) {
+    const mockResponse = await resolveMockOtpEndpoint(endpoint, payload);
+    if (mockResponse?.ok === false) {
+      const error = new Error(mockResponse.error || 'No se pudo completar la operación OTP.');
+      error.payload = mockResponse;
+      error.status = mockResponse.status || 400;
+      throw error;
+    }
+    if (mockResponse) return mockResponse;
+  }
 
   return callOtpEndpoint(endpoint, payload);
 }
@@ -2903,10 +2975,25 @@ async function verifyOtp() {
     throw new Error('Ingresa un código de 6 dígitos.');
   }
 
-  return callOtpEndpoint(['/.netlify/functions/verify_otp', '/.netlify/functions/otp-verify'], {
+  const payload = {
     challenge_id: otpState.challengeId,
     code,
-  });
+  };
+
+  const endpoints = buildOtpFunctionEndpoints('/.netlify/functions/verify_otp', '/.netlify/functions/otp-verify');
+
+  if (isLiveServerMockOtpEnv()) {
+    const mockResponse = await resolveMockOtpEndpoint(endpoints, payload);
+    if (mockResponse?.ok === false) {
+      const error = new Error(mockResponse.error || 'No se pudo completar la operación OTP.');
+      error.payload = mockResponse;
+      error.status = mockResponse.status || 400;
+      throw error;
+    }
+    if (mockResponse) return mockResponse;
+  }
+
+  return callOtpEndpoint(endpoints, payload);
 }
 
 async function handleStep1Submit(event) {
@@ -3402,7 +3489,14 @@ function wireEvents() {
     try {
       const result = await sendOtp({ channelPreference: 'auto', resend: true });
       applyOtpSendResult(result);
-      setOtpFeedback('info', 'Código reenviado.');
+      setOtpFeedback(
+        result?.fallback_from_sms && result?.channel_used === 'voice'
+          ? 'warning'
+          : 'info',
+        result?.fallback_from_sms && result?.channel_used === 'voice'
+          ? 'SMS no disponible; el código se envió por llamada de voz.'
+          : 'Código reenviado.'
+      );
       success = true;
     } catch (error) {
       setOtpFeedback('error', humanizeOtpError(error));
@@ -3423,18 +3517,23 @@ function wireEvents() {
     try {
       const result = await sendOtp({ channelPreference: 'voice', resend: true });
       applyOtpSendResult(result);
-      setOtpFeedback('info', 'Se envió OTP por llamada de voz.');
+      setOtpFeedback(
+        result?.fallback_from_sms && result?.channel_used === 'voice' ? 'warning' : 'info',
+        result?.fallback_from_sms && result?.channel_used === 'voice'
+          ? 'SMS no disponible; se usó llamada de voz como respaldo.'
+          : 'Se envió OTP por llamada de voz.'
+      );
       success = true;
     } catch (error) {
       setOtpFeedback('error', humanizeOtpError(error));
     } finally {
       btnOtpVoice.disabled = false;
-      btnOtpVoice.textContent = success ? 'Probar llamada' : prevText;
+      btnOtpVoice.textContent = success ? 'Recibir llamada' : prevText;
     }
   });
 
   btnOtpNoRecibi?.addEventListener('click', () => {
-    setOtpFeedback('warning', 'Si no te llega por SMS, usa "Probar llamada" o vuelve a reenviar al terminar el cooldown.');
+    setOtpFeedback('warning', 'Si no te llega por SMS, usa "Recibir llamada" o vuelve a reenviar cuando termine el cooldown.');
   });
 
   btnOtpContinue?.addEventListener('click', () => {
@@ -3537,8 +3636,6 @@ async function init() {
   wireEvents();
   await cargarUsuario();
   await cargarMunicipios();
-  await aplicarPrefillClaimDesdeUrl();
-  await cargarPlanesCatalogo();
   renderPlanes(selectedNivel);
   hideOtpVerificationBox({ clearSession: false });
   restoreOtpStateFromSession();

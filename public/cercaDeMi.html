@@ -8,7 +8,7 @@
 
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;600;700&display=swap" rel="stylesheet">
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -148,6 +148,42 @@
         <span id="radioKmLabel" class="text-sm">5 mi</span>
       </div>
     </div>
+  </div>
+
+  <div id="layerToggleBar" class="flex flex-col gap-2 pt-1">
+    <label class="flex items-center justify-between gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-left shadow-sm">
+      <div class="flex items-center gap-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sky-500 shadow-sm">
+          <i class="fas fa-umbrella-beach text-lg"></i>
+        </span>
+        <div>
+          <p class="text-sm font-semibold text-slate-800">Playas</p>
+          <p class="text-xs text-slate-500">Mostrar u ocultar playas cercanas</p>
+        </div>
+      </div>
+      <span class="relative inline-flex items-center">
+        <input id="togglePlayas" type="checkbox" class="sr-only peer" />
+        <span class="h-7 w-14 rounded-full bg-slate-300 transition-colors peer-checked:bg-sky-500"></span>
+        <span class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-7"></span>
+      </span>
+    </label>
+
+    <label class="flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-left shadow-sm">
+      <div class="flex items-center gap-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-white text-amber-500 shadow-sm">
+          <i class="fas fa-signs-post text-lg"></i>
+        </span>
+        <div>
+          <p class="text-sm font-semibold text-slate-800">Lugares de Interés</p>
+          <p class="text-xs text-slate-500">Mostrar u ocultar lugares cercanos</p>
+        </div>
+      </div>
+      <span class="relative inline-flex items-center">
+        <input id="toggleLugares" type="checkbox" class="sr-only peer" />
+        <span class="h-7 w-14 rounded-full bg-slate-300 transition-colors peer-checked:bg-amber-500"></span>
+        <span class="absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-7"></span>
+      </span>
+    </label>
   </div>
 </section>
 

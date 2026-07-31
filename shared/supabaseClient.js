@@ -53,6 +53,18 @@ function isLikelyNetlifyDevRuntime() {
   return port === '8888' || port === '8889';
 }
 
+function getAuthClientOptions() {
+  if (isLocalHostRuntime() && !isLikelyNetlifyDevRuntime()) {
+    // En Live Server/local static preview evitamos refresh automático para no disparar CORS
+    // con sesiones viejas guardadas en el navegador.
+    return {
+      autoRefreshToken: false,
+    };
+  }
+
+  return {};
+}
+
 async function fetchRuntimeSupabaseConfig() {
   if (typeof window === 'undefined' || typeof fetch !== 'function') {
     return { url: '', key: '' };
@@ -128,4 +140,6 @@ if (!hasEnvConfig && !hasRuntimeConfig && typeof console !== 'undefined') {
   );
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: getAuthClientOptions(),
+});

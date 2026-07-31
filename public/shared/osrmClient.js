@@ -1,7 +1,7 @@
 import { t } from '../js/i18n.js';
 
 const LOCAL_OSRM_BASE = 'http://127.0.0.1:5000';
-const REMOTE_OSRM_BASE = 'https://osrm.enpe-erre.com';
+const REMOTE_OSRM_BASE = 'https://osrm.findixi.com';
 
 function resolveBaseUrl() {
   return window.location.hostname === 'localhost'

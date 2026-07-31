@@ -5,9 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title data-i18n="login.title">Iniciar Sesión</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
+    window.tailwind = {
+      config: {
       theme: {
         extend: {
           colors: {
@@ -19,9 +19,29 @@
           }
         }
       }
-    }
+      }
+    };
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
+    html,
+    body {
+      background: #0e3652;
+      color: #ffffff;
+      font-family: 'Kanit', sans-serif;
+    }
+    .bg-oscuro {
+      background-color: #0e3652 !important;
+    }
+    .bg-celeste {
+      background-color: #3ea6c4 !important;
+    }
+    .text-celeste {
+      color: #3ea6c4 !important;
+    }
+    .border-celeste {
+      border-color: #3ea6c4 !important;
+    }
     @keyframes fadeUp {
       from {
         opacity: 0;
@@ -123,15 +143,22 @@
     <label class="block text-white text-sm mb-1" data-i18n="login.emailLabel">Email</label>
     <input type="email" id="emailRegistro" class="w-full px-3 py-2 rounded bg-white text-black mb-3" required />
 
-    <label id="telefonoLabel" class="block text-white text-sm mb-1" data-i18n="login.phoneOptionalLabel">Teléfono (opcional)</label>
+    <label id="telefonoLabel" class="block text-white text-sm mb-1">Teléfono (para verificación por SMS)</label>
     <input type="tel" id="telefonoRegistro" class="w-full px-3 py-2 rounded bg-white text-black mb-1 border border-transparent" placeholder="(787) 123-4567" data-i18n-placeholder="login.phonePlaceholder" />
     <p id="telefonoError" class="text-red-500 text-sm mt-1 hidden">El número de teléfono debe tener 10 dígitos.</p>
     <div class="mb-3"></div>
 
-    <label class="flex items-start gap-2 text-white text-sm mb-3">
-      <input type="checkbox" id="consentimientoSms" class="mt-1" checked />
-      <span data-i18n="login.smsConsent">Recibir notificaciones por texto de ofertas exclusivas de Findixi y de tus comercios favoritos.</span>
-    </label>
+    <div class="mb-4 rounded-2xl border border-cyan-300/40 bg-white/10 px-4 py-3 text-left text-white">
+      <label class="flex items-start gap-2 text-sm">
+        <input type="checkbox" id="consentimientoSms" class="mt-1 accent-celeste shrink-0" />
+        <span class="leading-5">
+          Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos.
+        </span>
+      </label>
+      <p class="mt-3 text-[11px] leading-4 text-white/80">
+        La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.
+      </p>
+    </div>
 
     <div id="terminosWrapper" class="flex flex-col gap-2 mb-4 text-left">
       <label class="flex items-start gap-2 text-white text-sm">
@@ -294,8 +321,8 @@
           </li>
           <li>
             <strong>Comunicaciones</strong><br />
-            Al crear tu cuenta, aceptas recibir comunicaciones de Findixi relacionadas con tu cuenta y actividad en la plataforma, incluyendo SMS.
-            <p class="mt-2">La frecuencia de SMS puede variar · Pueden aplicar cargos de mensajes y datos · Responde STOP para cancelar · Responde HELP para asistencia</p>
+            Al crear tu cuenta, aceptas recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de tu cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos.
+            <p class="mt-2">La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.</p>
           </li>
           <li>
             <strong>Propiedad intelectual</strong><br />
@@ -321,12 +348,12 @@
         <ol class="text-start list-decimal pl-5 space-y-3">
           <li><strong>Información que recopilamos</strong><br />Cuando creas una cuenta o usas Findixi, podemos recopilar: nombre, dirección de correo electrónico, número de teléfono, ubicación aproximada, y datos de uso de la plataforma.</li>
           <li><strong>Cómo usamos tu información</strong><br />Usamos tu información para: operar y mejorar la plataforma, enviarte comunicaciones relacionadas con tu cuenta, conectarte con comercios locales relevantes, y cumplir con obligaciones legales.</li>
-          <li><strong>Comunicaciones por SMS</strong><br />Al registrarte, aceptas recibir mensajes de texto (SMS) de Findixi relacionados con tu cuenta y actividad en la plataforma. La frecuencia puede variar. Pueden aplicar cargos de mensajes y datos según tu plan. Responde STOP en cualquier momento para cancelar. Responde HELP para asistencia.</li>
+          <li><strong>Comunicaciones por SMS</strong><br />Al registrarte, aceptas recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de tu cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.</li>
           <li><strong>Compartir información</strong><br />No vendemos tu información personal a terceros. Podemos compartirla con proveedores de servicios que nos ayudan a operar la plataforma, siempre bajo acuerdos de confidencialidad. También podemos divulgarla si la ley lo requiere.</li>
           <li><strong>Cookies y tecnologías similares</strong><br />Findixi puede usar cookies para mejorar tu experiencia, analizar el uso de la plataforma y personalizar contenido. Puedes configurar tu navegador para rechazar cookies, aunque esto puede afectar algunas funciones.</li>
           <li><strong>Seguridad de tu información</strong><br />Aplicamos medidas técnicas y organizativas razonables para proteger tu información. Sin embargo, ningún sistema es completamente seguro. Te recomendamos usar contraseñas únicas y mantener tus credenciales protegidas.</li>
           <li><strong>Retención de datos</strong><br />Conservamos tu información mientras tu cuenta esté activa o según sea necesario para cumplir con obligaciones legales. Puedes solicitar la eliminación de tu cuenta y datos en cualquier momento escribiéndonos.</li>
-          <li><strong>Tus derechos</strong><br />Tienes derecho a: acceder a tu información personal, corregir datos incorrectos, solicitar la eliminación de tu cuenta, y oponerte al uso de tu información para comunicaciones de marketing.</li>
+          <li><strong>Tus derechos</strong><br />Tienes derecho a: acceder a tu información personal, corregir datos incorrectos, solicitar la eliminación de tu cuenta, y limitar el uso de tu información a comunicaciones transaccionales y de servicio.</li>
           <li><strong>Menores de edad</strong><br />Findixi no está dirigido a menores de 13 años. No recopilamos intencionalmente información de menores. Si crees que un menor ha creado una cuenta, contáctanos para eliminarla.</li>
           <li><strong>Cambios a esta política</strong><br />Podemos actualizar esta política en cualquier momento. Te notificaremos por correo electrónico o mediante un aviso en la plataforma ante cambios importantes. El uso continuo de Findixi implica aceptación de la política actualizada.</li>
           <li><strong>Contacto</strong><br />Para ejercer tus derechos o hacer preguntas sobre esta política:<br />Correo: info@findixi.com</li>

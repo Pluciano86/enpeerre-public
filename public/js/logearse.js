@@ -61,6 +61,18 @@ async function actualizarPerfilUsuario(usuarioId, data) {
   return false;
 }
 
+function toE164Phone(phoneRaw) {
+  const raw = String(phoneRaw || '').trim();
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  if (raw.startsWith('+') && /^\+[1-9]\d{7,14}$/.test(`+${digits}`)) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  return '';
+}
+
 async function callUserPhoneOtpEndpoint(paths, payload, accessToken) {
   const endpointList = Array.isArray(paths) ? paths : [paths];
   let lastError = null;
@@ -96,11 +108,15 @@ async function callUserPhoneOtpEndpoint(paths, payload, accessToken) {
 async function verifyUserPhoneWithPrompt({ phoneRaw, accessToken }) {
   const phone = String(phoneRaw || '').trim();
   if (!phone || !accessToken) return { ok: false, skipped: true };
+  const e164Phone = toE164Phone(phone);
+  if (!e164Phone) {
+    throw new Error('El teléfono debe estar en formato E.164.');
+  }
 
   const sendResponse = await callUserPhoneOtpEndpoint(
     ['/.netlify/functions/send_user_phone_otp', '/.netlify/functions/user-phone-otp-send'],
     {
-      phone,
+      phone: e164Phone,
       channel_preference: 'auto',
     },
     accessToken
@@ -111,7 +127,7 @@ async function verifyUserPhoneWithPrompt({ phoneRaw, accessToken }) {
     throw new Error('No se recibió challenge_id en el envío OTP.');
   }
 
-  const code = window.prompt('Ingresa el código que recibiste por WhatsApp/SMS para verificar tu teléfono:');
+  const code = window.prompt('Ingresa el código que recibiste por SMS o llamada para verificar tu teléfono:');
   const normalized = String(code || '').replace(/\D/g, '').slice(0, 6);
   if (normalized.length !== 6) {
     return { ok: false, cancelled: true };
@@ -367,7 +383,7 @@ async function init() {
     const confirmar = document.getElementById('confirmarPassword').value;
     const telefonoDigits = telefonoInput?.dataset.digits || telefonoInput?.value.replace(/\D/g, '') || '';
     const municipio = document.getElementById('municipio').value;
-    const notificarText = consentimientoSms?.checked ?? true;
+    const notificarText = Boolean(consentimientoSms?.checked);
 
     if (password.length < 6) {
       passwordRegistroMensaje?.classList.remove('hidden');
@@ -391,6 +407,13 @@ async function init() {
       return;
     }
     setTelefonoErrorState(false);
+
+    if (telefonoDigits && !notificarText) {
+      errorRegistro.textContent = 'Debes aceptar el consentimiento de SMS transaccional para registrar un teléfono.';
+      errorRegistro.classList.remove('hidden');
+      consentimientoSms?.focus();
+      return;
+    }
 
     if (!terminosCheckbox?.checked) {
       errorRegistro.textContent = 'Debes aceptar los Términos y condiciones y la Política de privacidad de Findixi.';

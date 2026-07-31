@@ -240,6 +240,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'correo@ejemplo.com',
     phoneHelp: 'Necesario para enviarte el enlace del pedido.',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: 'El recibo sera enviado a este email.',
     subtotal: 'Subtotal',
     tax: 'Tax',
@@ -296,6 +297,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@example.com',
     phoneHelp: 'Required to send your order link.',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: 'Receipt will be sent to this email.',
     subtotal: 'Subtotal',
     tax: 'Tax',
@@ -352,6 +354,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@exemple.com',
     phoneHelp: 'Necessaire pour vous envoyer le lien de commande.',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: 'Le recu sera envoye a cet e-mail.',
     subtotal: 'Sous-total',
     tax: 'Taxe',
@@ -408,6 +411,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@exemplo.com',
     phoneHelp: 'Necessario para enviar o link do pedido.',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: 'O recibo sera enviado para este e-mail.',
     subtotal: 'Subtotal',
     tax: 'Imposto',
@@ -464,6 +468,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@beispiel.com',
     phoneHelp: 'Erforderlich, um dir den Bestelllink zu senden.',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: 'Der Beleg wird an diese E-Mail gesendet.',
     subtotal: 'Zwischensumme',
     tax: 'Steuer',
@@ -520,6 +525,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@esempio.com',
     phoneHelp: "Necessario per inviarti il link dell'ordine.",
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: 'La ricevuta verra inviata a questa email.',
     subtotal: 'Subtotale',
     tax: 'Tassa',
@@ -576,6 +582,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@example.com',
     phoneHelp: '用于发送订单链接。',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: '收据将发送到该邮箱。',
     subtotal: '小计',
     tax: '税费',
@@ -632,6 +639,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@example.com',
     phoneHelp: '주문 링크 전송에 필요합니다.',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: '영수증이 이 이메일로 전송됩니다.',
     subtotal: '소계',
     tax: '세금',
@@ -688,6 +696,7 @@ const ORDER_TEXTS = {
     phonePlaceholder: '787-000-0000',
     emailPlaceholder: 'email@example.com',
     phoneHelp: '注文リンク送信に必要です。',
+    phoneConsent: 'Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos. La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.',
     emailHelp: '領収書はこのメールに送信されます。',
     subtotal: '小計',
     tax: '税金',
@@ -1993,6 +2002,7 @@ function buildCartDrawer() {
           <label id="cartPhoneLabel" class="text-xs text-gray-500">${orderText('phone')}</label>
           <input id="cartPhone" type="tel" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="${orderText('phonePlaceholder')}" />
           <p id="cartPhoneHelp" class="text-[11px] text-gray-400">${orderText('phoneHelp')}</p>
+          <p id="cartPhoneConsent" class="mt-2 rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-[11px] leading-5 text-green-900">${orderText('phoneConsent')}</p>
         </div>
         <div class="space-y-1">
           <label id="cartEmailLabel" class="text-xs text-gray-500">${orderText('email')}</label>

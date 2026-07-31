@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title data-i18n="perfilComercio.title">Perfil Comercio</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@200;300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
@@ -470,6 +470,15 @@
             <div id="citaFormularioContacto" class="hidden space-y-2">
               <input id="inputCitaNombre" type="text" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Tu nombre completo" required />
               <input id="inputCitaTelefono" type="tel" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Teléfono" required />
+              <div class="rounded-xl border border-orange-200 bg-orange-50 px-3 py-3 text-[11px] leading-5 text-orange-900">
+                <p class="font-semibold text-orange-950">Consentimiento SMS transaccional</p>
+                <p class="mt-1">
+                  Acepto recibir mensajes SMS transaccionales de Findixi relacionados con la verificación de mi cuenta, autenticación de inicio de sesión, notificaciones de seguridad y actualizaciones de pedidos para mi cita o servicio.
+                </p>
+                <p class="mt-1">
+                  La frecuencia de los mensajes puede variar. Pueden aplicarse cargos por mensajes y datos según su proveedor móvil. Responda STOP para dejar de recibir mensajes o HELP para obtener ayuda. Su consentimiento no es una condición para realizar una compra.
+                </p>
+              </div>
               <input id="inputCitaEmail" type="email" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Email (opcional)" />
               <textarea id="inputCitaNotas" rows="2" class="w-full border rounded-lg px-3 py-2 text-base" placeholder="Notas adicionales (opcional)"></textarea>
               <button id="btnReservarCita" type="submit" class="w-full rounded-lg bg-[#fb8500] text-white font-normal text-base py-2 hover:bg-[#ea7c00] transition">Confirmar cita</button>

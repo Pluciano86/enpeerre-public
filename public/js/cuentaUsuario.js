@@ -26,6 +26,247 @@ function normalizePhoneForCompare(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function showSolicitudComercioFeedback(type, message) {
+  if (!solicitudComercioFeedback) return;
+  const tones = {
+    success: 'bg-emerald-50 border border-emerald-200 text-emerald-800',
+    warning: 'bg-amber-50 border border-amber-200 text-amber-800',
+    error: 'bg-red-50 border border-red-200 text-red-700',
+    info: 'bg-sky-50 border border-sky-200 text-sky-800',
+  };
+  solicitudComercioFeedback.className = `text-xs rounded-lg px-3 py-2 mt-3 ${tones[type] || tones.info}`;
+  solicitudComercioFeedback.textContent = message;
+  solicitudComercioFeedback.classList.remove('hidden');
+}
+
+function clearSolicitudComercioFeedback() {
+  if (!solicitudComercioFeedback) return;
+  solicitudComercioFeedback.className = 'hidden text-xs rounded-lg px-3 py-2 mt-3';
+  solicitudComercioFeedback.textContent = '';
+}
+
+function formatVerificationPlatform(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'facebook_messenger') return 'Facebook Messenger';
+  if (normalized === 'dm_instagram') return 'Instagram DM';
+  if (normalized === 'facebook') return 'Facebook';
+  if (normalized === 'instagram') return 'Instagram';
+  if (normalized === 'sms') return 'SMS';
+  if (normalized === 'voice' || normalized === 'llamada') return 'Llamada';
+  return value || '—';
+}
+
+function normalizeVerificationCode(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '');
+}
+
+function getSocialVerificationCode(request) {
+  const payload = parseJsonObject(request?.valor_solicitado);
+  return normalizeVerificationCode(payload?.codigo_unico || request?.codigo_unico || '');
+}
+
+function renderSolicitudComercioPendiente(request) {
+  solicitudComercioPendiente = request || null;
+
+  if (!solicitudComercioPendienteBox) return;
+  clearSolicitudComercioFeedback();
+
+  if (!request) {
+    solicitudComercioPendienteBox.classList.add('hidden');
+    if (solicitudComercioCodigo) solicitudComercioCodigo.value = '';
+    return;
+  }
+
+  const solicitada = parseJsonObject(request.valor_solicitado);
+  const comercioNombre = String(solicitada.nombre_comercio || request.nombre_comercio || perfilOriginal?.nombre_comercio || 'Tu comercio').trim();
+  const telefono = String(solicitada.telefono_comercio || request.telefono_comercio || '—').trim();
+  const direccion = String(solicitada.direccion_comercio || request.direccion_comercio || perfilOriginal?.direccion || '—').trim();
+  const cuenta = String(solicitada.cuenta || '—').trim();
+  const plataforma = formatVerificationPlatform(solicitada.plataforma || solicitada.canal || '—');
+  const motivo = String(request.motivo || `Necesitamos corroborar que eres el propietario de ${comercioNombre}.`).trim();
+
+  if (solicitudComercioNombre) solicitudComercioNombre.textContent = comercioNombre || 'Tu comercio';
+  if (solicitudComercioInfo) solicitudComercioInfo.textContent = motivo;
+  if (solicitudComercioTelefono) solicitudComercioTelefono.textContent = telefono || '—';
+  if (solicitudComercioDireccion) solicitudComercioDireccion.textContent = direccion || '—';
+  if (solicitudComercioCuenta) solicitudComercioCuenta.textContent = cuenta || '—';
+  if (solicitudComercioPlataforma) solicitudComercioPlataforma.textContent = plataforma;
+  if (solicitudComercioCodigo) solicitudComercioCodigo.value = '';
+
+  solicitudComercioPendienteBox.classList.remove('hidden');
+}
+
+async function fetchSolicitudComercioPendiente(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) return null;
+
+  const { data, error } = await supabase
+    .from('solicitudes_cambio_comercio')
+    .select('id, idComercio, user_id, campo, valor_solicitado, motivo, estado, created_at')
+    .eq('user_id', normalizedUserId)
+    .eq('campo', 'verificacion_contacto_social')
+    .eq('estado', 'pendiente')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+async function cargarSolicitudComercioPendiente(authUser) {
+  if (!authUser?.id) {
+    renderSolicitudComercioPendiente(null);
+    return null;
+  }
+
+  try {
+    const request = await fetchSolicitudComercioPendiente(authUser.id);
+    renderSolicitudComercioPendiente(request);
+    return request;
+  } catch (error) {
+    console.warn('No se pudo cargar la solicitud de comercio pendiente:', error?.message || error);
+    renderSolicitudComercioPendiente(null);
+    return null;
+  }
+}
+
+async function confirmarSolicitudComercioPendiente() {
+  if (!solicitudComercioPendiente?.id) return;
+  clearSolicitudComercioFeedback();
+
+  const codigoIngresado = normalizeVerificationCode(solicitudComercioCodigo?.value || '');
+  const codigoEsperado = getSocialVerificationCode(solicitudComercioPendiente);
+
+  if (!codigoEsperado) {
+    showSolicitudComercioFeedback('error', 'La solicitud no tiene un código válido para confirmar.');
+    return;
+  }
+
+  if (!codigoIngresado) {
+    showSolicitudComercioFeedback('warning', 'Escribe el código único para terminar la solicitud.');
+    return;
+  }
+
+  if (codigoIngresado !== codigoEsperado) {
+    showSolicitudComercioFeedback('error', 'El código no coincide. Revisa el mensaje recibido e intenta nuevamente.');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const comercioId = Number(solicitudComercioPendiente.idComercio);
+
+  try {
+    if (btnConfirmarSolicitudComercio) btnConfirmarSolicitudComercio.disabled = true;
+    if (solicitudComercioCodigo) solicitudComercioCodigo.disabled = true;
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || '';
+      await callAuthenticatedEndpoint(
+        ['/.netlify/functions/confirm_social_verification_request'],
+        {
+          request_id: solicitudComercioPendiente.id,
+          codigo: codigoIngresado,
+        },
+        accessToken
+      );
+    } catch (endpointError) {
+      const endpointStatus = Number(endpointError?.status || 0);
+      if (endpointStatus !== 404 && endpointStatus !== 405) {
+        throw endpointError;
+      }
+
+      const { error: requestError } = await supabase
+        .from('solicitudes_cambio_comercio')
+        .update({
+          estado: 'aprobada',
+          revisado_en: now,
+          nota_revision: 'Código confirmado por el usuario desde su cuenta.',
+        })
+        .eq('id', solicitudComercioPendiente.id)
+        .eq('user_id', solicitudComercioPendiente.user_id || '')
+        .eq('estado', 'pendiente');
+
+      if (requestError) throw requestError;
+
+      if (Number.isFinite(comercioId) && comercioId > 0) {
+        const valorSolicitado = parseJsonObject(solicitudComercioPendiente.valor_solicitado);
+        const plataforma = String(valorSolicitado.plataforma || valorSolicitado.canal || 'facebook').trim().toLowerCase();
+
+        const updatePayload = {
+          estado_verificacion: 'manual_aprobado',
+          metodo_verificacion: plataforma,
+          propietario_verificado: true,
+          bloqueo_datos_criticos: false,
+        };
+
+        const { error: comercioError } = await supabase
+          .from('Comercios')
+          .update(updatePayload)
+          .eq('id', comercioId);
+
+        if (comercioError) throw comercioError;
+      }
+    }
+
+    renderSolicitudComercioPendiente(null);
+    alert('Código validado. Tu solicitud quedó completada.');
+  } catch (error) {
+    console.error('Error confirmando solicitud de comercio:', error);
+    showSolicitudComercioFeedback('error', 'No se pudo completar la solicitud. Intenta nuevamente.');
+  } finally {
+    if (btnConfirmarSolicitudComercio) btnConfirmarSolicitudComercio.disabled = false;
+    if (solicitudComercioCodigo) solicitudComercioCodigo.disabled = false;
+  }
+}
+
+async function callAuthenticatedEndpoint(paths, payload, accessToken) {
+  const endpointList = Array.isArray(paths) ? paths : [paths];
+  let lastError = null;
+
+  for (const endpoint of endpointList) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(payload || {}),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) return data;
+
+      const error = new Error(data?.error || `Endpoint error ${response.status}`);
+      error.status = response.status;
+      error.payload = data;
+      lastError = error;
+
+      if (response.status !== 404 && response.status !== 405) throw error;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('No se pudo contactar el endpoint autenticado.');
+}
+
 async function callUserPhoneOtpEndpoint(paths, payload, accessToken) {
   const endpointList = Array.isArray(paths) ? paths : [paths];
   let lastError = null;
@@ -58,14 +299,30 @@ async function callUserPhoneOtpEndpoint(paths, payload, accessToken) {
   throw lastError || new Error('No se pudo contactar endpoint OTP de teléfono.');
 }
 
+function toE164Phone(phoneRaw) {
+  const raw = String(phoneRaw || '').trim();
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+  if (raw.startsWith('+') && /^\+[1-9]\d{7,14}$/.test(`+${digits}`)) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  return '';
+}
+
 async function verifyUserPhoneWithPrompt({ phoneRaw, accessToken }) {
   const phone = String(phoneRaw || '').trim();
   if (!phone || !accessToken) return { ok: false, skipped: true };
+  const e164Phone = toE164Phone(phone);
+  if (!e164Phone) {
+    throw new Error('El teléfono debe estar en formato E.164.');
+  }
 
   const sendResponse = await callUserPhoneOtpEndpoint(
     ['/.netlify/functions/send_user_phone_otp', '/.netlify/functions/user-phone-otp-send'],
     {
-      phone,
+      phone: e164Phone,
       channel_preference: 'auto',
     },
     accessToken
@@ -74,7 +331,7 @@ async function verifyUserPhoneWithPrompt({ phoneRaw, accessToken }) {
   const challengeId = sendResponse?.challenge_id;
   if (!challengeId) throw new Error('No se recibió challenge_id en envío OTP.');
 
-  const code = window.prompt('Ingresa el código que recibiste por WhatsApp/SMS para verificar tu teléfono:');
+  const code = window.prompt('Ingresa el código que recibiste por SMS o llamada para verificar tu teléfono:');
   const normalized = String(code || '').replace(/\D/g, '').slice(0, 6);
   if (normalized.length !== 6) return { ok: false, cancelled: true };
 
@@ -95,6 +352,16 @@ const emailUsuario = document.getElementById('emailUsuario');
 const municipioUsuario = document.getElementById('municipioUsuario');
 const fechaRegistro = document.getElementById('fechaRegistro');
 const fotoPerfil = document.getElementById('fotoPerfil');
+const solicitudComercioPendienteBox = document.getElementById('solicitudComercioPendienteBox');
+const solicitudComercioNombre = document.getElementById('solicitudComercioNombre');
+const solicitudComercioInfo = document.getElementById('solicitudComercioInfo');
+const solicitudComercioTelefono = document.getElementById('solicitudComercioTelefono');
+const solicitudComercioDireccion = document.getElementById('solicitudComercioDireccion');
+const solicitudComercioCuenta = document.getElementById('solicitudComercioCuenta');
+const solicitudComercioPlataforma = document.getElementById('solicitudComercioPlataforma');
+const solicitudComercioCodigo = document.getElementById('solicitudComercioCodigo');
+const btnConfirmarSolicitudComercio = document.getElementById('btnConfirmarSolicitudComercio');
+const solicitudComercioFeedback = document.getElementById('solicitudComercioFeedback');
 
 const modal = document.getElementById('modalEditar');
 const btnEditar = document.getElementById('btnEditarPerfil');
@@ -173,6 +440,7 @@ let mapaUsuariosMsg = {};
 let mapaComerciosMsg = {};
 let mensajesRealtimeChannels = [];
 let mensajesRealtimeRefreshTimer = null;
+let solicitudComercioPendiente = null;
 
 const mapRolLegible = (rol) => {
   const r = (rol || '').toLowerCase();
@@ -2263,6 +2531,7 @@ async function init() {
   }
 
   await actualizarVisibilidadAccesosUsuario(authUser);
+  await cargarSolicitudComercioPendiente(authUser);
   await mensajesPreload;
 }
 
@@ -2560,6 +2829,14 @@ formEditar?.addEventListener('submit', async (e) => {
     await init();
   } catch (err) {
     console.error(err);
+  }
+});
+
+btnConfirmarSolicitudComercio?.addEventListener('click', confirmarSolicitudComercioPendiente);
+solicitudComercioCodigo?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    confirmarSolicitudComercioPendiente();
   }
 });
 
